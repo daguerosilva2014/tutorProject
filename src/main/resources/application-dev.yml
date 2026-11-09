@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/academia}
+    username: ${SPRING_DATASOURCE_USERNAME:academia}
+    password: ${SPRING_DATASOURCE_PASSWORD:academia_dev}
+    driver-class-name: org.postgresql.Driver

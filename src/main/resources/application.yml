@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: academia-backend
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+app:
+  timezone: America/Argentina/Buenos_Aires
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expiration-seconds: 3600
+  initial-admin:
+    username: ${INITIAL_ADMIN_USERNAME:}
+    password: ${INITIAL_ADMIN_PASSWORD:}
