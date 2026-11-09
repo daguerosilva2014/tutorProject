@@ -241,7 +241,7 @@ Un administrador debe enviar `teacherId` de un usuario `TEACHER` activo. El prof
 
 `PATCH /classes/{classId}` requiere `date`, `startTime` y `endTime`; `notes` se puede omitir o enviar como `null` para borrarlo. El profesor de una clase no se cambia mediante ese endpoint. Solo las clases `SCHEDULED` pueden modificarse o cancelarse. `POST /classes/{classId}/cancel` devuelve la clase con estado `CANCELLED`; repetirlo devuelve `409`. Una clase de otro profesor devuelve `403` al consultar, editar o cancelar.
 
-La respuesta todavía no incluye `participantsCount`, porque las participaciones se incorporarán en E4. El estado `FINALIZED` ya forma parte del modelo y del filtro, pero ninguna operación de E3 finaliza clases: el cierre automático llegará en E6.
+La respuesta de clase no incluye `participantsCount`; el listado de participantes está disponible en `GET /classes/{classId}/participants`. El estado `FINALIZED` ya forma parte del modelo y del filtro, pero ninguna operación actual finaliza clases: el cierre automático llegará en E6.
 
 ### Cierre automático
 
@@ -282,7 +282,28 @@ Request:
 
 `subjectIds` puede omitirse o ser una lista vacía.
 
-Errores: `404` si falta un recurso, `409` si el alumno ya está asignado o la clase está cancelada/finalizada, y `422` si el alumno está inactivo.
+Response `201 Created`:
+
+```json
+{
+  "id": "2fd16d2a-a24b-41e6-8d5d-0bf123e1770f",
+  "classId": "e15c73e7-4555-4f4a-a31c-efc9923f9eb5",
+  "student": {
+    "id": "b7f63c7e-9e31-4cb9-88b9-8de9d2eb3a21",
+    "name": "Juan Gómez"
+  },
+  "subjects": [
+    {
+      "id": "1d9e52c4-3f6a-4ed2-bab5-9d4e1e7b8e12",
+      "name": "Matemática"
+    }
+  ]
+}
+```
+
+`GET /classes/{classId}/participants` devuelve un array ordenado por nombre del alumno. Los profesores solo pueden consultar y modificar participaciones de sus clases; el administrador puede hacerlo en todas. La consulta sigue disponible si la clase se cancela. La asignación requiere una clase `SCHEDULED` y un alumno `ACTIVE`.
+
+Errores: `400` si se repite una materia en la solicitud, `403` si la clase pertenece a otro profesor, `404` si falta la clase, el alumno o una materia, `409` si el alumno ya está asignado o la clase no está programada, y `422` si el alumno está inactivo o se intenta agregar una materia inactiva.
 
 ### Modificar materias de una participación
 
@@ -300,6 +321,10 @@ Request:
   ]
 }
 ```
+
+En este `PATCH`, `subjectIds` es obligatorio: reemplaza la lista completa. Una lista vacía quita todas las materias. Se puede conservar una materia ya asociada aunque luego se desactive, pero no agregar una materia inactiva por primera vez. La clase debe seguir `SCHEDULED`. Si no existe la participación se devuelve `404`.
+
+La respuesta de E4 no incluye todavía asistencia ni consumo; esos campos llegarán en E6.
 
 ### Registrar asistencia o ausencia
 

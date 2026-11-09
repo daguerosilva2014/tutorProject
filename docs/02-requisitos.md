@@ -88,6 +88,9 @@ El sistema debe registrar el usuario, fecha, dato anterior y dato nuevo de las m
 - Una clase puede incluir alumnos que trabajen materias diferentes.
 - Una participación puede no tener ninguna materia especificada.
 - La materia se registra en la participación del alumno y no es obligatoria para la clase.
+- Un alumno inactivo no puede asignarse a una clase nueva y un alumno no puede repetirse en la misma clase.
+- Solo se pueden agregar materias activas a una participación; si una materia se desactiva después, se conserva en su historial.
+- La asignación de alumnos y el cambio de sus materias requieren una clase programada.
 - Las clases se cierran automáticamente cuando pasa su horario.
 - Un alumno puede asistir con varios profesores.
 - Un paquete puede estar pagado, parcialmente pagado o adeudado.

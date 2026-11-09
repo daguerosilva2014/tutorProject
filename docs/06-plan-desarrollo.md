@@ -635,7 +635,7 @@ Verificaciones realizadas:
 - PostgreSQL 16 mediante Docker Compose: contenedor saludable.
 - Arranque con perfil `dev`: correcto; conexión a PostgreSQL y migración Flyway verificadas.
 
-Las épicas E4 a E9 permanecen pendientes.
+Las épicas E5 a E9 permanecen pendientes.
 
 ### E1: Autenticación y usuarios
 
@@ -663,7 +663,7 @@ Verificación: `mvn -Dmaven.repo.local=/tmp/tutorProject-maven-repository test` 
 
 Estado: implementada para altas, consultas, edición, activación, inactivación y filtros sin paginación.
 
-La asignación de alumnos inactivos se verificará en E4, cuando exista la participación en clases. La paginación de alumnos queda pendiente para E9.
+E4 verifica que un alumno inactivo no pueda asignarse a una clase. La paginación de alumnos queda pendiente para E9.
 
 Verificación: 15 tests correctos con el perfil `test`, incluyendo la migración Flyway V4 en H2, validación de entradas, filtros, autenticación y cambios de estado.
 
@@ -671,6 +671,14 @@ Verificación: 15 tests correctos con el perfil `test`, incluyendo la migración
 
 Estado: implementada para materias y programación, consulta, edición, filtrado y cancelación de clases.
 
-Las materias admiten estados `ACTIVE` e `INACTIVE`. Cada clase tiene un profesor activo, fecha y horario válido; comienza `SCHEDULED`. Un profesor solo administra sus clases y el administrador puede administrar las de cualquier profesor activo. La edición y la cancelación solo se permiten mientras la clase esté programada. La asignación de alumnos y materias por participación llegará en E4; el cierre automático y la transición a `FINALIZED`, en E6. La paginación queda pendiente para E9.
+Las materias admiten estados `ACTIVE` e `INACTIVE`. Cada clase tiene un profesor activo, fecha y horario válido; comienza `SCHEDULED`. Un profesor solo administra sus clases y el administrador puede administrar las de cualquier profesor activo. La edición y la cancelación solo se permiten mientras la clase esté programada. E4 incorpora la asignación de alumnos y materias por participación; el cierre automático y la transición a `FINALIZED` llegarán en E6. La paginación queda pendiente para E9.
 
 Verificación: 24 tests correctos con el perfil `test`, incluidas las migraciones Flyway V5 y V6 en H2, contratos HTTP, filtros, permisos y transiciones de estado. PostgreSQL todavía no se verificó para estas migraciones.
+
+### E4: Participación de alumnos
+
+Estado: implementada para asignación manual, consulta de participantes y reemplazo de materias opcionales.
+
+Cada participación vincula un alumno y una clase. Solo se admiten alumnos activos y clases programadas; una restricción única impide repetir el alumno en una clase. Las materias activas pueden asociarse en cantidad cero o mayor; desactivar una materia no borra su asociación previa. El profesor solo opera en sus clases y el administrador puede hacerlo en todas. La asistencia, el consumo y las recuperaciones quedan para E6 y E7.
+
+Verificación: 30 tests correctos con el perfil `test`, incluida Flyway V7 en H2, asignaciones con cero, una y varias materias, cambio de materias, permisos, alumnos y materias inactivos y restricción única en la base. PostgreSQL todavía no se verificó para V7.

@@ -45,6 +45,36 @@ public class ApiExceptionHandler {
                 .body(new ApiError(Instant.now(), 404, "CLASS_NOT_FOUND", "Clase no encontrada."));
     }
 
+    @ExceptionHandler(ClassParticipationNotFoundException.class)
+    ResponseEntity<ApiError> handleParticipationNotFound() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError(Instant.now(), 404, "PARTICIPATION_NOT_FOUND", "Participación no encontrada."));
+    }
+
+    @ExceptionHandler(DuplicateClassParticipationException.class)
+    ResponseEntity<ApiError> handleDuplicateParticipation() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(Instant.now(), 409, "DUPLICATE_PARTICIPATION", "El alumno ya está asignado a la clase."));
+    }
+
+    @ExceptionHandler(DuplicateSubjectException.class)
+    ResponseEntity<ApiError> handleDuplicateSubject() {
+        return ResponseEntity.badRequest()
+                .body(new ApiError(Instant.now(), 400, "DUPLICATE_SUBJECT", "La solicitud contiene una materia repetida."));
+    }
+
+    @ExceptionHandler(InactiveStudentException.class)
+    ResponseEntity<ApiError> handleInactiveStudent() {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ApiError(Instant.now(), 422, "INACTIVE_STUDENT", "No se puede asignar un alumno inactivo."));
+    }
+
+    @ExceptionHandler(InactiveSubjectException.class)
+    ResponseEntity<ApiError> handleInactiveSubject() {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ApiError(Instant.now(), 422, "INACTIVE_SUBJECT", "No se puede agregar una materia inactiva."));
+    }
+
     @ExceptionHandler(ClassAccessDeniedException.class)
     ResponseEntity<ApiError> handleClassAccessDenied() {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -60,7 +90,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(InvalidClassStateException.class)
     ResponseEntity<ApiError> handleInvalidClassState() {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ApiError(Instant.now(), 409, "INVALID_CLASS_STATE", "Solo se puede modificar o cancelar una clase programada."));
+                .body(new ApiError(Instant.now(), 409, "INVALID_CLASS_STATE", "La clase debe estar programada para esta operación."));
     }
 
     @ExceptionHandler(InvalidClassScheduleException.class)

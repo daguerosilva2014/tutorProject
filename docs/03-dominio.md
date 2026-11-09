@@ -130,6 +130,8 @@ Representa la asignación de un alumno a una clase concreta y concentra el estad
 
 Esta entidad es necesaria porque la asistencia y el consumo pertenecen a la relación entre alumno y clase.
 
+Desde E4, `ClassParticipation` materializa la relación muchos a muchos entre alumnos y clases. Un alumno puede aparecer una sola vez por clase; la base de datos lo garantiza con una restricción única. Las materias se guardan en una tabla intermedia de cada participación, de modo que alumnos de una misma clase pueden tener materias distintas. Una participación puede no tener materias. Solo se pueden incorporar materias activas, pero desactivar una materia después no borra las asociaciones históricas. La asistencia, el consumo y las recuperaciones se agregarán en E6 y E7.
+
 ### PaqueteDeClases
 
 Representa una cantidad de clases adquirida por un alumno.

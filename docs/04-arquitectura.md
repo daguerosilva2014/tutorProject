@@ -97,6 +97,10 @@ JPA necesita un constructor sin argumentos con visibilidad `protected` o `public
 
 Las migraciones existentes de usuarios definen la tabla `users`, por lo que la entidad se mapea explícitamente a ese nombre y a sus columnas.
 
+La relación de `AcademyClass` con su profesor usa la carga predeterminada de `@ManyToOne`. Como las consultas actuales de clases necesitan los datos del profesor, no se agrega una configuración de carga particular a cada consulta. Si el volumen de clases exige optimizar las consultas, se revisará con mediciones.
+
+`ClassParticipation` es una entidad JPA propia que vincula una clase y un alumno, con restricción única sobre ambos identificadores. Sus materias se persisten mediante una tabla intermedia. El servicio valida estado y permisos antes de crear o modificar participaciones; la restricción de la base refuerza la prevención de duplicados ante solicitudes simultáneas. Las materias se cargan con la participación para construir las respuestas actuales; si el volumen crece, se medirá el costo de esas consultas.
+
 ## 6. Contratos HTTP
 
 Los controladores exponen JSON y usan DTOs para separar el contrato público del modelo persistido. Las entidades JPA no se devuelven directamente desde los endpoints.
