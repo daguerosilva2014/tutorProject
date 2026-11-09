@@ -5,10 +5,14 @@ import com.academia.exception.DuplicateClassParticipationException;
 import com.academia.exception.DuplicateSubjectException;
 import com.academia.exception.InactiveStudentException;
 import com.academia.exception.InactiveSubjectException;
+import com.academia.exception.InvalidBillingModeException;
 import com.academia.exception.InvalidClassStateException;
+import com.academia.exception.NoPackageBalanceException;
 import com.academia.model.AcademyClass;
+import com.academia.model.BillingMode;
 import com.academia.model.ClassParticipation;
 import com.academia.model.ClassStatus;
+import com.academia.model.Money;
 import com.academia.model.Student;
 import com.academia.model.StudentStatus;
 import com.academia.model.Subject;
@@ -19,7 +23,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashSet;
+import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -31,13 +36,16 @@ public class ClassParticipationService {
     private final AcademyClassService classService;
     private final StudentService studentService;
     private final SubjectService subjectService;
+    private final ClassPackageService packageService;
 
     public ClassParticipationService(ClassParticipationRepository repository, AcademyClassService classService,
-                                     StudentService studentService, SubjectService subjectService) {
+                                     StudentService studentService, SubjectService subjectService,
+                                     ClassPackageService packageService) {
         this.repository = repository;
         this.classService = classService;
         this.studentService = studentService;
         this.subjectService = subjectService;
+        this.packageService = packageService;
     }
 
     @Transactional(readOnly = true)
@@ -47,19 +55,29 @@ public class ClassParticipationService {
     }
 
     @Transactional
-    public ClassParticipation create(String username, UUID classId, UUID studentId, List<UUID> subjectIds) {
+    public ClassParticipation create(String username, UUID classId, UUID studentId, List<UUID> subjectIds,
+                                     BillingMode billingMode, BigDecimal unitPrice) {
         AcademyClass academyClass = classService.findById(username, classId);
         requireScheduled(academyClass);
         Student student = studentService.findById(studentId);
         if (student.status() != StudentStatus.ACTIVE) {
             throw new InactiveStudentException();
         }
+        if (billingMode == BillingMode.PACKAGE) {
+            if (unitPrice != null) throw new InvalidBillingModeException();
+            if (!packageService.hasAvailableClasses(studentId)) throw new NoPackageBalanceException();
+        } else if (billingMode == BillingMode.PER_CLASS) {
+            if (unitPrice == null) throw new InvalidBillingModeException();
+        } else {
+            throw new InvalidBillingModeException();
+        }
         if (repository.existsByAcademyClassIdAndStudentId(classId, studentId)) {
             throw new DuplicateClassParticipationException();
         }
         Set<Subject> subjects = resolveSubjects(subjectIds, Set.of());
         try {
-            return repository.saveAndFlush(ClassParticipation.create(academyClass, student, subjects));
+            return repository.saveAndFlush(ClassParticipation.create(academyClass, student, subjects,
+                    billingMode, unitPrice == null ? null : new Money(unitPrice)));
         } catch (DataIntegrityViolationException exception) {
             if (exception.getCause() instanceof ConstraintViolationException violation
                     && "uq_class_participation_class_student".equalsIgnoreCase(violation.getConstraintName())) {
@@ -82,11 +100,11 @@ public class ClassParticipationService {
     }
 
     private Set<Subject> resolveSubjects(List<UUID> subjectIds, Set<UUID> currentSubjectIds) {
-        Set<Subject> subjects = new LinkedHashSet<>();
+        Set<Subject> subjects = new HashSet<>();
         if (subjectIds == null) {
             return subjects;
         }
-        Set<UUID> seen = new LinkedHashSet<>();
+        Set<UUID> seen = new HashSet<>();
         for (UUID subjectId : subjectIds) {
             if (!seen.add(subjectId)) {
                 throw new DuplicateSubjectException();

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.util.List;
@@ -49,6 +50,48 @@ public class ApiExceptionHandler {
     ResponseEntity<ApiError> handleParticipationNotFound() {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ApiError(Instant.now(), 404, "PARTICIPATION_NOT_FOUND", "Participación no encontrada."));
+    }
+
+    @ExceptionHandler(ClassPackageNotFoundException.class)
+    ResponseEntity<ApiError> handlePackageNotFound() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError(Instant.now(), 404, "PACKAGE_NOT_FOUND", "Paquete no encontrado."));
+    }
+
+    @ExceptionHandler(InvalidPaymentException.class)
+    ResponseEntity<ApiError> handleInvalidPayment() {
+        return ResponseEntity.badRequest()
+                .body(new ApiError(Instant.now(), 400, "INVALID_PAYMENT", "El pago debe ser mayor que cero."));
+    }
+
+    @ExceptionHandler(PaymentExceedsBalanceException.class)
+    ResponseEntity<ApiError> handlePaymentExceedsBalance() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(Instant.now(), 409, "PAYMENT_EXCEEDS_BALANCE", "El pago supera el saldo pendiente."));
+    }
+
+    @ExceptionHandler(NoPackageBalanceException.class)
+    ResponseEntity<ApiError> handleNoPackageBalance() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(Instant.now(), 409, "NO_PACKAGE_BALANCE", "El alumno no tiene clases disponibles en un paquete."));
+    }
+
+    @ExceptionHandler(InvalidBillingModeException.class)
+    ResponseEntity<ApiError> handleInvalidBillingMode() {
+        return ResponseEntity.badRequest()
+                .body(new ApiError(Instant.now(), 400, "INVALID_BILLING_MODE", "La modalidad de cobro no coincide con los datos de la participación."));
+    }
+
+    @ExceptionHandler(AttendanceConflictException.class)
+    ResponseEntity<ApiError> handleAttendanceConflict() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(Instant.now(), 409, "ATTENDANCE_CONFLICT", "La asistencia ya tiene otro estado."));
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    ResponseEntity<ApiError> handleConcurrentUpdate() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(Instant.now(), 409, "CONCURRENT_UPDATE", "Los datos cambiaron durante la operación. Reintenta la consulta."));
     }
 
     @ExceptionHandler(DuplicateClassParticipationException.class)

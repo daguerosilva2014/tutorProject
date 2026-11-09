@@ -312,7 +312,7 @@ Como profesor o administrador, quiero registrar pagos parciales para conocer el 
 4. Implementar creación y consulta de paquetes.
 5. Implementar registro de pagos.
 6. Calcular importe pagado y saldo pendiente.
-7. Validar ARS, importes positivos y pagos que no superen el saldo.
+7. Mantener ARS como divisa fija, validar importes positivos y pagos que no superen el saldo.
 8. Permitir paquetes futuros en estado pendiente de uso.
 
 ### Criterios de aceptación
@@ -371,6 +371,8 @@ Como sistema, quiero cerrar automáticamente las clases vencidas para consumir l
 7. Garantizar idempotencia del cierre.
 8. Proteger actualizaciones concurrentes del paquete.
 9. Registrar auditoría de los consumos.
+10. Elegir `PACKAGE` o `PER_CLASS` en cada participación; guardar precio y pagos individuales cuando corresponda.
+11. Registrar el aviso de ausencia con la hora del servidor y aplicar el umbral de 12 horas.
 
 ### Criterios de aceptación
 
@@ -382,6 +384,9 @@ Como sistema, quiero cerrar automáticamente las clases vencidas para consumir l
 - Las clases vencidas se cierran automáticamente.
 - El cierre automático no duplica consumos.
 - Una clase cancelada no consume clases.
+- Un paquete se crea para el alumno sin clase asignada. Una participación `PER_CLASS` no requiere paquete y permite deuda y pagos parciales.
+- Una ausencia avisada con al menos 12 horas no consume ni genera deuda individual.
+- Si falta saldo al cierre de una participación `PACKAGE`, se revierte el cierre completo para poder reintentarlo.
 
 ### Pruebas
 
@@ -420,7 +425,7 @@ Como profesor, quiero asignar una recuperación a una clase futura para cerrar e
 ### Tareas técnicas
 
 1. Validar el límite de 12 horas usando fecha y hora de la clase.
-2. Cambiar la participación a `PENDING_RECOVERY` cuando corresponda.
+2. Identificar las participaciones `JUSTIFIED_ABSENCE` y `NOT_CONSUMED` pendientes de recuperación sin reutilizar el estado de consumo como estado de recuperación.
 3. Implementar `POST /class-participations/{id}/recovery`.
 4. Crear la participación de destino o vincularla si ya existe.
 5. Impedir reutilizar una recuperación.
@@ -635,7 +640,7 @@ Verificaciones realizadas:
 - PostgreSQL 16 mediante Docker Compose: contenedor saludable.
 - Arranque con perfil `dev`: correcto; conexión a PostgreSQL y migración Flyway verificadas.
 
-Las épicas E5 a E9 permanecen pendientes.
+Las épicas E7 a E9 permanecen pendientes.
 
 ### E1: Autenticación y usuarios
 
@@ -682,3 +687,15 @@ Estado: implementada para asignación manual, consulta de participantes y reempl
 Cada participación vincula un alumno y una clase. Solo se admiten alumnos activos y clases programadas; una restricción única impide repetir el alumno en una clase. Las materias activas pueden asociarse en cantidad cero o mayor; desactivar una materia no borra su asociación previa. El profesor solo opera en sus clases y el administrador puede hacerlo en todas. La asistencia, el consumo y las recuperaciones quedan para E6 y E7.
 
 Verificación: 30 tests correctos con el perfil `test`, incluida Flyway V7 en H2, asignaciones con cero, una y varias materias, cambio de materias, permisos, alumnos y materias inactivos y restricción única en la base. PostgreSQL todavía no se verificó para V7.
+
+### E5: Paquetes y pagos
+
+Estado: implementada para creación y consulta de paquetes, filtros por estado de uso y pago, registro de pagos parciales o completos y consulta de pagos.
+
+`Money` valida importes con dos decimales; ARS es la divisa fija del sistema y no forma parte de los requests ni responses. El precio del paquete puede ser cero; los pagos deben ser positivos y no superar el saldo pendiente. El paquete mantiene saldos monetarios y de clases independientes; el uso de clases comenzará en E6. Cada pago conserva el usuario que lo registró. Los pagos se agregan junto con la actualización del total abonado en una transacción; el campo `version` impide confirmar dos actualizaciones concurrentes basadas en el mismo saldo. No hay paginación todavía. La corrección auditada de pagos queda pendiente para E8 o una decisión posterior.
+
+Verificación: 39 tests correctos con el perfil `test`, incluidas Flyway V8 y V9 en H2, reglas monetarias, estados, API, pago parcial y completo, rechazo de pagos superiores al saldo y conflicto de versión. PostgreSQL todavía no se verificó para V8 y V9.
+
+### Estado de E6
+
+E6 incorpora asistencia, aviso de ausencia con hora del servidor, cierre automático por clase, consumo del paquete más antiguo con saldo y registro único de cada consumo. También incorpora las dos modalidades de cobro por participación: `PACKAGE` y `PER_CLASS`, con deuda y pagos parciales para la segunda. Un cierre sin saldo se revierte y se reintenta. Las ausencias justificadas no consumen ni generan cobro. Las recuperaciones quedan para E7; por ello el estado `NOT_CONSUMED` todavía no representa una recuperación utilizada. Verificación: 46 tests correctos con el perfil `test`, incluyendo Flyway V10 y V11 en H2, API, umbral de 12 horas, pagos parciales, cierre idempotente y reintento por falta de saldo. PostgreSQL todavía requiere comprobación de V10 y V11. Las participaciones existentes anteriores a E6 se migran con modalidad `PACKAGE` por defecto; si no tienen paquete disponible, deberá registrarse uno antes de que puedan cerrarse.

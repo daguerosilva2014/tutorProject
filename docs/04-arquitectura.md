@@ -101,6 +101,12 @@ La relación de `AcademyClass` con su profesor usa la carga predeterminada de `@
 
 `ClassParticipation` es una entidad JPA propia que vincula una clase y un alumno, con restricción única sobre ambos identificadores. Sus materias se persisten mediante una tabla intermedia. El servicio valida estado y permisos antes de crear o modificar participaciones; la restricción de la base refuerza la prevención de duplicados ante solicitudes simultáneas. Las materias se cargan con la participación para construir las respuestas actuales; si el volumen crece, se medirá el costo de esas consultas.
 
+Las materias de una participación se mantienen en un `HashSet` para evitar repetidos; el orden de la respuesta lo establece `ClassParticipationResponse` por nombre, sin depender del orden interno del conjunto.
+
+`ClassPackage` guarda precio y total pagado como `NUMERIC(14,2)` y deriva sus estados de esos importes y de las clases utilizadas. `Money` concentra la validación de importes con dos decimales; ARS es una regla fija del sistema y la API expone números sin un campo de divisa. Registrar un pago actualiza el total del paquete e inserta el pago en una única transacción. La columna `version` de `ClassPackage` permite a JPA rechazar una segunda actualización concurrente basada en un saldo anterior.
+
+E6 registra la modalidad de cobro en cada `ClassParticipation`. `PACKAGE` consulta el paquete más antiguo con saldo al cerrar la clase; `PER_CLASS` guarda un precio en la participación y sus pagos en `PerClassPayment`. `ClassClosureScheduler` busca clases vencidas cada minuto y `ClassClosureService` cierra cada clase en una transacción independiente. La hora se obtiene de un `Clock` con la zona `app.timezone`; el aviso de ausencia recibe una marca de tiempo del servidor. La restricción única de `ClassConsumption` y las versiones JPA de clase, participación y paquete protegen el cierre frente a repeticiones y operaciones concurrentes. Una clase sin saldo suficiente conserva `SCHEDULED` para un reintento posterior.
+
 ## 6. Contratos HTTP
 
 Los controladores exponen JSON y usan DTOs para separar el contrato público del modelo persistido. Las entidades JPA no se devuelven directamente desde los endpoints.

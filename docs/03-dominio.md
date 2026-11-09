@@ -103,7 +103,7 @@ Representa una sesión concreta dictada por un profesor.
 
 La clase no tiene una materia obligatoria. Esto permite que un profesor trabaje materias diferentes con alumnos distintos durante la misma sesión.
 
-En E3, una clase nueva comienza en estado `SCHEDULED`. Solo las clases programadas pueden editarse o cancelarse; la cancelación cambia su estado a `CANCELLED`. El cambio automático a `FINALIZED` y la resolución de consumos se incorporarán en E6. El profesor asociado no puede cambiarse al editar la clase. El horario debe tener una hora de fin posterior a la de inicio, dentro de la misma fecha.
+Una clase nueva comienza en estado `SCHEDULED`. Solo las clases programadas pueden editarse o cancelarse; la cancelación cambia su estado a `CANCELLED`. E6 cierra automáticamente las clases vencidas como `FINALIZED` y resuelve sus participaciones en una transacción por clase. El profesor asociado no puede cambiarse al editar la clase. El horario debe tener una hora de fin posterior a la de inicio, dentro de la misma fecha.
 
 ### ParticipaciónEnClase
 
@@ -130,7 +130,7 @@ Representa la asignación de un alumno a una clase concreta y concentra el estad
 
 Esta entidad es necesaria porque la asistencia y el consumo pertenecen a la relación entre alumno y clase.
 
-Desde E4, `ClassParticipation` materializa la relación muchos a muchos entre alumnos y clases. Un alumno puede aparecer una sola vez por clase; la base de datos lo garantiza con una restricción única. Las materias se guardan en una tabla intermedia de cada participación, de modo que alumnos de una misma clase pueden tener materias distintas. Una participación puede no tener materias. Solo se pueden incorporar materias activas, pero desactivar una materia después no borra las asociaciones históricas. La asistencia, el consumo y las recuperaciones se agregarán en E6 y E7.
+Desde E4, `ClassParticipation` materializa la relación muchos a muchos entre alumnos y clases. Un alumno puede aparecer una sola vez por clase; la base de datos lo garantiza con una restricción única. Las materias se guardan en una tabla intermedia de cada participación, de modo que alumnos de una misma clase pueden tener materias distintas. Una participación puede no tener materias. Solo se pueden incorporar materias activas, pero desactivar una materia después no borra las asociaciones históricas. E6 incorpora asistencia y consumo; las recuperaciones siguen pendientes para E7.
 
 ### PaqueteDeClases
 
@@ -158,6 +158,8 @@ Representa una cantidad de clases adquirida por un alumno.
 
 El saldo se calcula como `cantidad total - cantidad utilizada`. La cantidad utilizada no debe modificarse directamente sin una operación de negocio auditable.
 
+El paquete comienza con cero clases utilizadas y se crea para el alumno, sin asociarlo a una clase. El estado de uso se deriva de esa cantidad (`PENDING`, `IN_USE`, `EXHAUSTED`) y el estado de pago se deriva del precio y lo abonado (`PENDING`, `PARTIAL`, `PAID`). Un precio de cero deja el paquete pagado desde el inicio. E6 descuenta clases al cerrar participaciones `PACKAGE`, aunque el paquete esté impago.
+
 ### Pago
 
 Representa un importe abonado por un alumno para un paquete.
@@ -177,6 +179,8 @@ Representa un importe abonado por un alumno para un paquete.
 - aplicar un importe al paquete;
 - participar en el cálculo del estado de pago;
 - impedir que el total abonado supere el precio del paquete, salvo decisión futura explícita.
+
+En E5 cada pago es un registro independiente e inmutable. Se conserva el usuario que lo registró. La edición o corrección auditada de pagos aún no está implementada.
 
 ### RegistroDeAuditoria
 
@@ -204,14 +208,18 @@ Es un concepto transversal de soporte. No reemplaza el estado actual de las enti
 
 ### Dinero
 
-Representa un importe monetario junto con su moneda.
+Representa un importe monetario en pesos argentinos.
 
 **Propiedades:**
 
 - monto decimal exacto;
-- moneda, inicialmente ARS.
+- moneda implícita y fija: ARS.
 
 Debe ser inmutable y centralizar operaciones como suma, comparación y resta sin utilizar valores de punto flotante para dinero.
+
+E5 utiliza `Money` para validar importes con dos decimales y calcular diferencias. La moneda no es un atributo modificable ni se envía en la API: todos los importes se interpretan en ARS. La base de datos persiste importes `NUMERIC(14,2)`.
+
+Como solo existe ARS, `Money` recibe el importe directamente en su constructor y no necesita un método de creación por divisa.
 
 ### RangoHorario
 
@@ -230,6 +238,8 @@ No se proponen objetos de valor para cada atributo por defecto. Solo se incorpor
 - Un `Alumno` puede tener cero o muchos `PaqueteDeClases`.
 - Un `PaqueteDeClases` puede tener cero o muchos `Pago`.
 - Una `ParticipaciónEnClase` puede utilizar como máximo una clase de un paquete.
+- Cada participación elige `PACKAGE` o `PER_CLASS`; esta última guarda precio individual y pagos propios, sin paquete.
+- `ClassConsumption` conserva qué paquete se utilizó y cuándo; `PerClassPayment` registra cada pago individual.
 - Una participación justificada puede tener cero o una referencia a la participación futura donde fue recuperada.
 - Un `RegistroDeAuditoria` corresponde a un cambio realizado por un usuario sobre una entidad.
 
@@ -310,9 +320,9 @@ El modelo debe expresar operaciones de negocio y no limitarse a exponer atributo
 
 - `agregarMateria(materia)` agrega una materia trabajada sin hacerla obligatoria.
 - `registrarPresencia()` marca la asistencia.
-- `registrarAvisoDeInasistencia(fechaHora)` determina si el aviso cumple el plazo de 12 horas.
-- `resolverConsumo()` cambia el estado a consumida o justificada pendiente de recuperar.
-- `marcarRecuperada(participacionFutura)` vincula la recuperación y evita un nuevo descuento.
+- `recordAttendance(status, notifiedAt)` guarda el resultado calculado por `AttendanceService`; la hora del aviso proviene del servidor.
+- `consumeFrom(classPackage)` o `closeWithoutConsumption(status)` resuelven el consumo durante el cierre de clase.
+- La vinculación con una participación de recuperación queda pendiente para E7.
 
 ### PaqueteDeClases
 
@@ -518,7 +528,6 @@ classDiagram
 
     class Dinero {
         +BigDecimal monto
-        +Currency moneda
     }
 
     class RangoHorario {

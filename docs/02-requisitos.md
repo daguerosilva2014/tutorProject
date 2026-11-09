@@ -94,10 +94,16 @@ El sistema debe registrar el usuario, fecha, dato anterior y dato nuevo de las m
 - Las clases se cierran automáticamente cuando pasa su horario.
 - Un alumno puede asistir con varios profesores.
 - Un paquete puede estar pagado, parcialmente pagado o adeudado.
+- Un paquete puede estar completamente pagado sin haber utilizado clases; el saldo de clases y el saldo monetario se calculan por separado.
+- El precio de un paquete es no negativo y un pago debe ser positivo, en ARS y no superar el saldo pendiente.
 - Un alumno con deuda puede continuar asistiendo.
+- El paquete se crea para un alumno sin asignarlo a una clase. Al asignar una participación se elige `PACKAGE` o `PER_CLASS`; en esta última modalidad se acuerda un precio individual y no se crea un paquete.
+- Una participación `PACKAGE` exige que exista un paquete con clases disponibles al asignarla. El consumo efectivo se decide al cerrar la clase; si falta saldo, el cierre se revierte y se reintenta después.
+- Una participación `PER_CLASS` genera deuda al cerrarse la clase si no hubo ausencia justificada. Puede pagarse después en uno o varios pagos, sin superar el precio acordado.
+- El servidor registra la hora del aviso de ausencia. Con 12 horas o más antes del inicio, la ausencia queda justificada y no genera consumo ni cobro por clase.
 - Los alumnos inactivos conservan todo su historial.
 - Los profesores y administradores pueden modificar información, pero los cambios quedan auditados.
-- La moneda utilizada inicialmente es el peso argentino (ARS).
+- Todos los importes se expresan en pesos argentinos (ARS); la divisa no se elige ni modifica desde la API.
 
 ## Stack tecnológico inicial
 

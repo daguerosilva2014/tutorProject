@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -39,6 +40,10 @@ public class AcademyClass {
 
     @Column(length = 1000)
     private String notes;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     protected AcademyClass() {
     }
@@ -72,6 +77,13 @@ public class AcademyClass {
             throw new IllegalStateException("Only scheduled classes can be cancelled");
         }
         this.status = ClassStatus.CANCELLED;
+    }
+
+    public void finalizeClass() {
+        if (status != ClassStatus.SCHEDULED) {
+            throw new IllegalStateException("Only scheduled classes can be finalized");
+        }
+        this.status = ClassStatus.FINALIZED;
     }
 
     public UUID id() { return id; }

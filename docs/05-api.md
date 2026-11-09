@@ -20,6 +20,8 @@ Accept: application/json
 
 Las fechas utilizarán ISO-8601, por ejemplo `2026-11-06` y `2026-11-06T18:30:00-03:00`. Los identificadores se expondrán como UUID. La API no expondrá directamente entidades JPA.
 
+Los importes se expresan como números en pesos argentinos (ARS). La API no recibe ni devuelve un campo de divisa.
+
 ## 2. Recursos principales
 
 | Recurso | Concepto de dominio |
@@ -76,7 +78,7 @@ Errores: `400 Bad Request` para campos faltantes y `401 Unauthorized` para crede
 GET /api/v1/auth/me
 ```
 
-El administrador puede gestionar todos los recursos. Los profesores pueden administrar sus propias clases, asignar alumnos activos, registrar asistencia y recuperaciones en esas clases, y consultar o modificar pagos de cualquier alumno. La administración de usuarios queda reservada al administrador.
+El administrador puede gestionar todos los recursos. Los profesores pueden administrar sus propias clases, asignar alumnos activos, registrar asistencia en esas clases y consultar o registrar pagos de paquetes de cualquier alumno. Los pagos por clase individual se limitan a sus propias clases. Las recuperaciones se incorporarán en E7. La administración de usuarios queda reservada al administrador.
 
 ## 4. Usuarios
 
@@ -241,13 +243,13 @@ Un administrador debe enviar `teacherId` de un usuario `TEACHER` activo. El prof
 
 `PATCH /classes/{classId}` requiere `date`, `startTime` y `endTime`; `notes` se puede omitir o enviar como `null` para borrarlo. El profesor de una clase no se cambia mediante ese endpoint. Solo las clases `SCHEDULED` pueden modificarse o cancelarse. `POST /classes/{classId}/cancel` devuelve la clase con estado `CANCELLED`; repetirlo devuelve `409`. Una clase de otro profesor devuelve `403` al consultar, editar o cancelar.
 
-La respuesta de clase no incluye `participantsCount`; el listado de participantes está disponible en `GET /classes/{classId}/participants`. El estado `FINALIZED` ya forma parte del modelo y del filtro, pero ninguna operación actual finaliza clases: el cierre automático llegará en E6.
+La respuesta de clase no incluye `participantsCount`; el listado de participantes está disponible en `GET /classes/{classId}/participants`. Las clases vencidas pasan automáticamente a `FINALIZED` mediante el proceso de cierre de E6.
 
 ### Cierre automático
 
 No existirá un endpoint público para finalizar clases. Una tarea programada del backend buscará periódicamente clases `SCHEDULED` cuyo horario haya terminado y las pasará a `FINALIZED`.
 
-La misma transacción resolverá participaciones, consumos y recuperaciones. El proceso será idempotente y no producirá consumos duplicados si se ejecuta nuevamente.
+Cada clase se cierra en una transacción que resuelve asistencia, consumo de paquete o deuda por clase individual. El proceso es idempotente y no produce consumos duplicados si se ejecuta nuevamente. Las recuperaciones se incorporarán en E7.
 
 Cancelar una clase continúa siendo explícito:
 
@@ -274,13 +276,14 @@ Request:
 ```json
 {
   "studentId": "b7f63c7e-9e31-4cb9-88b9-8de9d2eb3a21",
+  "billingMode": "PACKAGE",
   "subjectIds": [
     "1d9e52c4-3f6a-4ed2-bab5-9d4e1e7b8e12"
   ]
 }
 ```
 
-`subjectIds` puede omitirse o ser una lista vacía.
+`subjectIds` puede omitirse o ser una lista vacía. `billingMode` es obligatorio: `PACKAGE` exige un paquete del alumno con clases disponibles y no acepta `unitPrice`; `PER_CLASS` exige `unitPrice` (ARS, no negativo, hasta dos decimales) y no crea un paquete.
 
 Response `201 Created`:
 
@@ -292,6 +295,14 @@ Response `201 Created`:
     "id": "b7f63c7e-9e31-4cb9-88b9-8de9d2eb3a21",
     "name": "Juan Gómez"
   },
+  "billingMode": "PACKAGE",
+  "unitPrice": null,
+  "attendanceStatus": "PENDING",
+  "absenceNotifiedAt": null,
+  "consumptionStatus": "PENDING",
+  "consumedPackageId": null,
+  "paidAmount": 0.00,
+  "outstandingAmount": 0.00,
   "subjects": [
     {
       "id": "1d9e52c4-3f6a-4ed2-bab5-9d4e1e7b8e12",
@@ -324,7 +335,7 @@ Request:
 
 En este `PATCH`, `subjectIds` es obligatorio: reemplaza la lista completa. Una lista vacía quita todas las materias. Se puede conservar una materia ya asociada aunque luego se desactive, pero no agregar una materia inactiva por primera vez. La clase debe seguir `SCHEDULED`. Si no existe la participación se devuelve `404`.
 
-La respuesta de E4 no incluye todavía asistencia ni consumo; esos campos llegarán en E6.
+La respuesta incluye `billingMode`, `unitPrice`, `attendanceStatus`, `absenceNotifiedAt`, `consumptionStatus`, `consumedPackageId`, `paidAmount` y `outstandingAmount`. En `PER_CLASS`, el saldo comienza en cero y pasa al precio acordado cuando se cierra la clase, salvo ausencia justificada.
 
 ### Registrar asistencia o ausencia
 
@@ -344,8 +355,7 @@ Ausencia:
 
 ```json
 {
-  "status": "ABSENT",
-  "absenceNotifiedAt": "2026-11-10T03:00:00-03:00"
+  "status": "ABSENT"
 }
 ```
 
@@ -355,11 +365,21 @@ Response de ausencia justificada:
 {
   "id": "2fd16d2a-a24b-41e6-8d5d-0bf123e1770f",
   "attendanceStatus": "JUSTIFIED_ABSENCE",
-  "consumptionStatus": "PENDING_RECOVERY"
+  "absenceNotifiedAt": "2026-11-09T15:00:00Z",
+  "consumptionStatus": "PENDING"
 }
 ```
 
-La operación es idempotente para el mismo estado. Repetirla no debe descontar otra clase.
+El servidor registra `absenceNotifiedAt` al recibir `ABSENT`: no acepta una hora suministrada por el cliente. Si el aviso llega al menos 12 horas antes del inicio, el estado pasa a `JUSTIFIED_ABSENCE`; si llega después, pasa a `ABSENT`. La operación es idempotente para la misma marca (`PRESENT` o `ABSENT`); cambiarla devuelve `409 ATTENDANCE_CONFLICT`. Solo se registra asistencia mientras la clase siga `SCHEDULED`; un profesor solo accede a sus clases. Al cerrar, una asistencia pendiente se resuelve como `ABSENT` sin aviso. La ausencia justificada no consume paquete ni genera deuda por clase. Las recuperaciones todavía no están implementadas (E7).
+
+### Pagos por clase individual
+
+```http
+GET  /api/v1/class-participations/{participationId}/payments
+POST /api/v1/class-participations/{participationId}/payments
+```
+
+Se usa el mismo request de pagos de paquete (`amount`, `paidAt`, `method`, `notes`). Solo aplica a `PER_CLASS` y se puede pagar cuando la clase está `FINALIZED` y existe saldo. Se admiten pagos parciales, positivos y hasta el saldo pendiente. La respuesta incluye `id`, `participationId`, `amount`, `paidAt`, `method`, `notes`, `registeredBy` y `outstandingAmount` actual. El listado se ordena por fecha e identificador. Un profesor solo opera sobre sus clases; el administrador puede operar sobre todas. Un exceso de pago devuelve `409 PAYMENT_EXCEEDS_BALANCE`.
 
 ### Asignar recuperación
 
@@ -395,40 +415,37 @@ POST /api/v1/students/{studentId}/packages
 GET  /api/v1/packages/{packageId}
 ```
 
-Filtros: `usageStatus`, `paymentStatus`, `page`, `size` y `sort`.
+`GET /students/{studentId}/packages` acepta los filtros opcionales `usageStatus` (`PENDING`, `IN_USE`, `EXHAUSTED`) y `paymentStatus` (`PENDING`, `PARTIAL`, `PAID`). Devuelve un array ordenado por fecha de compra e identificador. No hay paginación en E5. `GET /packages/{packageId}` devuelve un paquete o `404`.
 
 Request:
 
 ```json
 {
   "totalClasses": 8,
-  "price": {
-    "amount": 32000.00,
-    "currency": "ARS"
-  },
+  "price": 32000.00,
   "purchasedAt": "2026-11-06"
 }
 ```
 
-Response:
+Response `201 Created`:
 
 ```json
 {
   "id": "f2f9f58d-9b59-4ec9-80df-c22d37c1f8e4",
   "studentId": "b7f63c7e-9e31-4cb9-88b9-8de9d2eb3a21",
   "totalClasses": 8,
-  "usedClasses": 4,
-  "remainingClasses": 4,
-  "price": {
-    "amount": 32000.00,
-    "currency": "ARS"
-  },
-  "paidAmount": 20000.00,
-  "outstandingAmount": 12000.00,
-  "usageStatus": "IN_USE",
-  "paymentStatus": "PARTIAL"
+  "usedClasses": 0,
+  "remainingClasses": 8,
+  "price": 32000.00,
+  "paidAmount": 0.00,
+  "outstandingAmount": 32000.00,
+  "usageStatus": "PENDING",
+  "paymentStatus": "PENDING",
+  "purchasedAt": "2026-11-06"
 }
 ```
+
+`totalClasses` debe ser positivo y `price` puede ser cero o positivo, con hasta dos decimales. Todos los importes del sistema son pesos argentinos (ARS): el cliente no envía ni puede modificar una divisa. `purchasedAt` es obligatorio. Un paquete gratuito comienza `PAID` y no admite pagos. `usedClasses` comienza en cero y aumenta al cerrar participaciones `PACKAGE` consumibles. Administrador y profesor autenticados pueden crear y consultar paquetes de cualquier alumno.
 
 ## 10. Pagos
 
@@ -441,10 +458,7 @@ Request:
 
 ```json
 {
-  "amount": {
-    "amount": 20000.00,
-    "currency": "ARS"
-  },
+  "amount": 20000.00,
   "paidAt": "2026-11-06",
   "method": "CASH",
   "notes": "Pago inicial"
@@ -457,18 +471,19 @@ Response `201 Created`:
 {
   "id": "77d82d38-77b9-4ea9-9016-5b2c7c1e8d11",
   "packageId": "f2f9f58d-9b59-4ec9-80df-c22d37c1f8e4",
-  "amount": {
-    "amount": 20000.00,
-    "currency": "ARS"
-  },
+  "amount": 20000.00,
   "paidAt": "2026-11-06",
   "method": "CASH",
+  "notes": "Pago inicial",
+  "registeredBy": "7b3a9f1e-6c1f-4a1b-9e23-1d7c7d9b1c10",
   "paymentStatus": "PARTIAL",
   "outstandingAmount": 12000.00
 }
 ```
 
-Errores: `400` por importe inválido, `404` por paquete inexistente y `409` si el importe supera el saldo pendiente.
+`GET /packages/{packageId}/payments` devuelve un array ordenado por fecha e identificador. `amount` debe ser positivo y tener hasta dos decimales; se interpreta siempre en ARS. `paidAt` es obligatorio. `method` y `notes` son opcionales; `method` acepta `CASH`, `TRANSFER` u `OTHER`. El usuario autenticado queda registrado en `registeredBy`. `paymentStatus` y `outstandingAmount` muestran el **estado actual del paquete** al consultar un pago; para conocer el importe de cada pago se usa `amount`. No hay edición ni borrado de pagos en E5. Administrador y profesor autenticados pueden registrar y consultar pagos de cualquier alumno.
+
+Errores: `400` por importe inválido, `404` por paquete inexistente, `409` si el importe supera el saldo pendiente o si el paquete cambió por una operación concurrente. Una operación fallida no guarda el pago ni aumenta el total abonado.
 
 ## 11. Historial y auditoría
 
@@ -496,8 +511,8 @@ Todas las respuestas de error utilizarán el mismo formato:
 {
   "timestamp": "2026-11-06T16:30:00-03:00",
   "status": 409,
-  "code": "PACKAGE_WITHOUT_BALANCE",
-  "message": "El paquete no tiene clases disponibles."
+  "code": "NO_PACKAGE_BALANCE",
+  "message": "El alumno no tiene clases disponibles en un paquete."
 }
 ```
 
@@ -529,7 +544,7 @@ Error de validación:
 - Clase: la finalización debe ser posterior al inicio.
 - Participación: alumno obligatorio y único por clase.
 - Participación: materias opcionales; deben existir y estar activas.
-- Paquete: cantidad mayor que cero; moneda `ARS`; precio no negativo.
+- Paquete: cantidad mayor que cero; precio no negativo, siempre en ARS.
 - Pago: importe mayor que cero y no superior al saldo pendiente.
 - Recuperación: ausencia justificada, clase destino futura y alumno no duplicado.
 

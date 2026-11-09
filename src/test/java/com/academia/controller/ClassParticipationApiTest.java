@@ -264,9 +264,11 @@ class ClassParticipationApiTest {
 
     private String createRequest(UUID studentId, List<UUID> subjectIds) throws Exception {
         if (subjectIds == null) {
-            return objectMapper.writeValueAsString(Map.of("studentId", studentId));
+            return objectMapper.writeValueAsString(Map.of("studentId", studentId,
+                    "billingMode", "PER_CLASS", "unitPrice", 0));
         }
-        return objectMapper.writeValueAsString(Map.of("studentId", studentId, "subjectIds", subjectIds));
+        return objectMapper.writeValueAsString(Map.of("studentId", studentId, "subjectIds", subjectIds,
+                "billingMode", "PER_CLASS", "unitPrice", 0));
     }
 
     private String subjects(List<UUID> subjectIds) throws Exception {
