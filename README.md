@@ -38,7 +38,7 @@ La base queda disponible en `localhost:5432`. Las migraciones Flyway se ejecutan
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-La aplicación usa arquitectura clásica por capas: `controller`, `service`, `repository`, `model`, `dto`, `security`, `config` y `exception`. E1 implementa autenticación JWT y usuarios; E2, alumnos; E3, materias y clases; E4, participaciones; E5, paquetes y pagos parciales; E6, asistencia, cierre automático y cobro por clase. Todos los importes se interpretan en ARS y la API no acepta una divisa configurable. Las recuperaciones siguen pendientes. El diseño se describe en [docs/04-arquitectura.md](docs/04-arquitectura.md) y los endpoints en [docs/05-api.md](docs/05-api.md).
+La aplicación usa arquitectura clásica por capas: `controller`, `service`, `repository`, `model`, `dto`, `security`, `config` y `exception`. E1 implementa autenticación JWT y usuarios; E2, alumnos; E3, materias y clases; E4, participaciones; E5, paquetes y pagos parciales; E6, asistencia, cierre automático y cobro por clase; E7, recuperaciones. Todos los importes se interpretan en ARS y la API no acepta una divisa configurable. La auditoría y el historial completo quedan pendientes para E8. El diseño se describe en [docs/04-arquitectura.md](docs/04-arquitectura.md) y los endpoints en [docs/05-api.md](docs/05-api.md).
 
 ## Configuración
 

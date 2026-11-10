@@ -88,6 +88,12 @@ public class ApiExceptionHandler {
                 .body(new ApiError(Instant.now(), 409, "ATTENDANCE_CONFLICT", "La asistencia ya tiene otro estado."));
     }
 
+    @ExceptionHandler(InvalidRecoveryException.class)
+    ResponseEntity<ApiError> handleInvalidRecovery() {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(Instant.now(), 409, "INVALID_RECOVERY", "La ausencia no puede recuperarse en esa clase."));
+    }
+
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     ResponseEntity<ApiError> handleConcurrentUpdate() {
         return ResponseEntity.status(HttpStatus.CONFLICT)

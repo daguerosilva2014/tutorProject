@@ -15,4 +15,4 @@ Cada participación conserva una modalidad `PACKAGE` o `PER_CLASS`. El paquete p
 
 ## Consecuencias
 
-La respuesta de participación expone modalidad, asistencia, consumo y saldo. La selección del paquete ocurre al cerrar, por lo que varias clases programadas pueden competir por el mismo saldo; la versión JPA del paquete evita un consumo concurrente indebido. Si se agota antes del cierre, la clase queda programada hasta registrar saldo. La recuperación de ausencias justificadas se diseñará en E7 sobre estos estados.
+La respuesta de participación expone modalidad, asistencia, consumo y saldo. La selección del paquete ocurre al cerrar, por lo que varias clases programadas pueden competir por el mismo saldo; la versión JPA del paquete evita un consumo concurrente indebido. Si se agota antes del cierre, la clase queda programada hasta registrar saldo. E7 vincula una ausencia justificada con una participación futura: la original no consume ni cobra, y la recuperación utiliza una clase restante o genera el cobro individual al cerrarse.

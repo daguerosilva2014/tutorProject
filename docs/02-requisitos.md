@@ -84,7 +84,7 @@ El sistema debe registrar el usuario, fecha, dato anterior y dato nuevo de las m
 
 - Una clase sin aviso previo consume una clase del paquete aunque el alumno no asista.
 - Una ausencia avisada con al menos 12 horas puede recuperarse.
-- Una recuperación reemplaza el consumo de la clase original.
+- Una ausencia justificada deja la clase original sin consumo ni cobro. La clase de recuperación utiliza una de las clases restantes del paquete, o genera el cobro individual acordado, cuando se cierra.
 - Una clase puede incluir alumnos que trabajen materias diferentes.
 - Una participación puede no tener ninguna materia especificada.
 - La materia se registra en la participación del alumno y no es obligatoria para la clase.

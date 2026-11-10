@@ -78,7 +78,7 @@ Errores: `400 Bad Request` para campos faltantes y `401 Unauthorized` para crede
 GET /api/v1/auth/me
 ```
 
-El administrador puede gestionar todos los recursos. Los profesores pueden administrar sus propias clases, asignar alumnos activos, registrar asistencia en esas clases y consultar o registrar pagos de paquetes de cualquier alumno. Los pagos por clase individual se limitan a sus propias clases. Las recuperaciones se incorporarán en E7. La administración de usuarios queda reservada al administrador.
+El administrador puede gestionar todos los recursos. Los profesores pueden administrar sus propias clases, asignar alumnos activos, registrar asistencia y programar recuperaciones entre clases propias; pueden consultar o registrar pagos de paquetes de cualquier alumno. Los pagos por clase individual se limitan a sus propias clases. La administración de usuarios queda reservada al administrador.
 
 ## 4. Usuarios
 
@@ -249,7 +249,7 @@ La respuesta de clase no incluye `participantsCount`; el listado de participante
 
 No existirá un endpoint público para finalizar clases. Una tarea programada del backend buscará periódicamente clases `SCHEDULED` cuyo horario haya terminado y las pasará a `FINALIZED`.
 
-Cada clase se cierra en una transacción que resuelve asistencia, consumo de paquete o deuda por clase individual. El proceso es idempotente y no produce consumos duplicados si se ejecuta nuevamente. Las recuperaciones se incorporarán en E7.
+Cada clase se cierra en una transacción que resuelve asistencia, consumo de paquete o deuda por clase individual, incluidas las clases usadas como recuperación. El proceso es idempotente y no produce consumos duplicados si se ejecuta nuevamente.
 
 Cancelar una clase continúa siendo explícito:
 
@@ -303,6 +303,7 @@ Response `201 Created`:
   "consumedPackageId": null,
   "paidAmount": 0.00,
   "outstandingAmount": 0.00,
+  "recoveryTargetId": null,
   "subjects": [
     {
       "id": "1d9e52c4-3f6a-4ed2-bab5-9d4e1e7b8e12",
@@ -335,7 +336,7 @@ Request:
 
 En este `PATCH`, `subjectIds` es obligatorio: reemplaza la lista completa. Una lista vacía quita todas las materias. Se puede conservar una materia ya asociada aunque luego se desactive, pero no agregar una materia inactiva por primera vez. La clase debe seguir `SCHEDULED`. Si no existe la participación se devuelve `404`.
 
-La respuesta incluye `billingMode`, `unitPrice`, `attendanceStatus`, `absenceNotifiedAt`, `consumptionStatus`, `consumedPackageId`, `paidAmount` y `outstandingAmount`. En `PER_CLASS`, el saldo comienza en cero y pasa al precio acordado cuando se cierra la clase, salvo ausencia justificada.
+La respuesta incluye `billingMode`, `unitPrice`, `attendanceStatus`, `absenceNotifiedAt`, `consumptionStatus`, `consumedPackageId`, `paidAmount`, `outstandingAmount` y `recoveryTargetId`. Este último es `null` hasta que se programa una recuperación. En `PER_CLASS`, el saldo comienza en cero y pasa al precio acordado cuando se cierra la clase, salvo ausencia justificada.
 
 ### Registrar asistencia o ausencia
 
@@ -370,7 +371,7 @@ Response de ausencia justificada:
 }
 ```
 
-El servidor registra `absenceNotifiedAt` al recibir `ABSENT`: no acepta una hora suministrada por el cliente. Si el aviso llega al menos 12 horas antes del inicio, el estado pasa a `JUSTIFIED_ABSENCE`; si llega después, pasa a `ABSENT`. La operación es idempotente para la misma marca (`PRESENT` o `ABSENT`); cambiarla devuelve `409 ATTENDANCE_CONFLICT`. Solo se registra asistencia mientras la clase siga `SCHEDULED`; un profesor solo accede a sus clases. Al cerrar, una asistencia pendiente se resuelve como `ABSENT` sin aviso. La ausencia justificada no consume paquete ni genera deuda por clase. Las recuperaciones todavía no están implementadas (E7).
+El servidor registra `absenceNotifiedAt` al recibir `ABSENT`: no acepta una hora suministrada por el cliente. Si el aviso llega al menos 12 horas antes del inicio, el estado pasa a `JUSTIFIED_ABSENCE`; si llega después, pasa a `ABSENT`. La operación es idempotente para la misma marca (`PRESENT` o `ABSENT`); cambiarla devuelve `409 ATTENDANCE_CONFLICT`. Solo se registra asistencia mientras la clase siga `SCHEDULED`; un profesor solo accede a sus clases. Al cerrar, una asistencia pendiente se resuelve como `ABSENT` sin aviso. La ausencia justificada no consume paquete ni genera deuda por clase; puede vincularse a una recuperación posterior.
 
 ### Pagos por clase individual
 
@@ -405,7 +406,13 @@ Response `201 Created`:
 }
 ```
 
-Errores relevantes: `409` si la ausencia no es justificable, la recuperación ya fue utilizada, la clase destino no es futura o el alumno ya está asignado.
+La participación original debe estar `JUSTIFIED_ABSENCE` y `NOT_CONSUMED`, y su clase debe estar `FINALIZED`. La clase destino debe estar `SCHEDULED`, comenzar después de la clase original y no haber empezado todavía. Se crea una participación nueva del mismo alumno, sin materias iniciales, con la misma modalidad de cobro y el mismo precio individual si corresponde. La clase recuperada consume una de las clases restantes del paquete o genera deuda individual **cuando se cierra**. La clase original no consume ni cobra.
+
+En la respuesta, `RECOVERED` indica que el vínculo quedó registrado; no confirma asistencia ni consumo de la clase destino.
+
+Repetir la misma solicitud devuelve el mismo destino mientras siga vigente, sin crear otro. Una ausencia no puede tener dos recuperaciones vigentes. Si se cancela la clase destino, se puede asignar una nueva. El profesor debe tener acceso tanto a la clase original como a la de destino; el administrador puede operar en ambas.
+
+Errores relevantes: `409 INVALID_RECOVERY` si la ausencia o la clase destino no cumplen las condiciones, `409 DUPLICATE_PARTICIPATION` si el alumno ya está asignado a esa clase, `409 NO_PACKAGE_BALANCE` si la modalidad requiere paquete y no hay saldo, y `403` si falta permiso sobre alguna clase.
 
 ## 9. Paquetes
 
@@ -570,7 +577,7 @@ Filtros principales:
 
 Son idempotentes las operaciones `PUT /class-participations/{id}/attendance`, `PATCH /students/{id}/status` y `PATCH /subjects/{id}/status`. Repetir el mismo estado no debe generar un consumo adicional.
 
-Las operaciones de creación, especialmente pagos y recuperaciones, pueden aceptar:
+Una recuperación repetida con la misma clase destino devuelve el vínculo existente. No se implementó soporte general para `Idempotency-Key`; se puede considerar en E9:
 
 ```http
 Idempotency-Key: 7dcb0bbf-ccf5-44e1-a7c2-6de53cf06e3a

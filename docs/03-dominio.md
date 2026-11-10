@@ -130,7 +130,7 @@ Representa la asignación de un alumno a una clase concreta y concentra el estad
 
 Esta entidad es necesaria porque la asistencia y el consumo pertenecen a la relación entre alumno y clase.
 
-Desde E4, `ClassParticipation` materializa la relación muchos a muchos entre alumnos y clases. Un alumno puede aparecer una sola vez por clase; la base de datos lo garantiza con una restricción única. Las materias se guardan en una tabla intermedia de cada participación, de modo que alumnos de una misma clase pueden tener materias distintas. Una participación puede no tener materias. Solo se pueden incorporar materias activas, pero desactivar una materia después no borra las asociaciones históricas. E6 incorpora asistencia y consumo; las recuperaciones siguen pendientes para E7.
+Desde E4, `ClassParticipation` materializa la relación muchos a muchos entre alumnos y clases. Un alumno puede aparecer una sola vez por clase; la base de datos lo garantiza con una restricción única. Las materias se guardan en una tabla intermedia de cada participación, de modo que alumnos de una misma clase pueden tener materias distintas. Una participación puede no tener materias. Solo se pueden incorporar materias activas, pero desactivar una materia después no borra las asociaciones históricas. E6 incorpora asistencia y consumo; E7 vincula las ausencias justificadas con una participación futura.
 
 ### PaqueteDeClases
 
@@ -240,7 +240,7 @@ No se proponen objetos de valor para cada atributo por defecto. Solo se incorpor
 - Una `ParticipaciónEnClase` puede utilizar como máximo una clase de un paquete.
 - Cada participación elige `PACKAGE` o `PER_CLASS`; esta última guarda precio individual y pagos propios, sin paquete.
 - `ClassConsumption` conserva qué paquete se utilizó y cuándo; `PerClassPayment` registra cada pago individual.
-- Una participación justificada puede tener cero o una referencia a la participación futura donde fue recuperada.
+- Una participación justificada puede tener cero o una referencia a la participación futura donde se programó su recuperación.
 - Un `RegistroDeAuditoria` corresponde a un cambio realizado por un usuario sobre una entidad.
 
 La relación entre materias y participaciones es opcional. Una participación sin materias representa una clase cuyo contenido no se especificó.
@@ -281,7 +281,7 @@ La relación entre materias y participaciones es opcional. Una participación si
 - La recuperación puede ser gestionada manualmente por un profesor o administrador.
 - Una participación recuperable pasa a estado recuperada cuando se vincula con una participación futura.
 - Una recuperación ya utilizada no puede volver a utilizarse.
-- La clase recuperada no genera un descuento adicional.
+- La clase original justificada no consume ni cobra. La clase de recuperación consume una clase disponible del paquete o genera una deuda individual al cerrarse. Si la clase destino se cancela, se puede reemplazar por otra recuperación futura.
 
 ### Paquetes y pagos
 
@@ -322,7 +322,7 @@ El modelo debe expresar operaciones de negocio y no limitarse a exponer atributo
 - `registrarPresencia()` marca la asistencia.
 - `recordAttendance(status, notifiedAt)` guarda el resultado calculado por `AttendanceService`; la hora del aviso proviene del servidor.
 - `consumeFrom(classPackage)` o `closeWithoutConsumption(status)` resuelven el consumo durante el cierre de clase.
-- La vinculación con una participación de recuperación queda pendiente para E7.
+- `assignRecovery(target)` vincula la ausencia justificada con una participación futura; admite otro destino si se canceló el anterior.
 
 ### PaqueteDeClases
 
@@ -356,13 +356,12 @@ Una clase finalizada no vuelve a programada. Una clase cancelada no se procesa c
 ### ParticipaciónEnClase
 
 ```text
-PENDIENTE --> PRESENTE --> CONSUMIDA
-PENDIENTE --> AUSENCIA_JUSTIFICADA --> JUSTIFICADA_PENDIENTE_RECUPERAR
-JUSTIFICADA_PENDIENTE_RECUPERAR --> RECUPERADA
-PENDIENTE --> AUSENCIA_NO_JUSTIFICADA --> CONSUMIDA
+Asistencia: PENDING --> PRESENT | ABSENT | JUSTIFIED_ABSENCE
+Consumo:    PENDING --> CONSUMED | NOT_CONSUMED | NOT_APPLICABLE
+Recuperación: sin destino --> participación futura (puede reemplazarse si se cancela)
 ```
 
-Una clase cancelada puede llevar las participaciones a `NO_APLICA`, sin consumo.
+La asistencia pendiente pasa a `ABSENT` al cerrar. `JUSTIFIED_ABSENCE` cierra como `NOT_CONSUMED`; una participación `PER_CLASS` consumible cierra como `NOT_APPLICABLE` y genera deuda. La cancelación de una clase no resuelve ni consume sus participaciones.
 
 ### PaqueteDeClases
 
@@ -421,17 +420,17 @@ No se registra todavía cuánto tiempo dedicó el alumno a cada materia. Si ese 
 
 Se eliminan documento y correo porque no son necesarios para identificar ni contactar al alumno dentro del alcance actual. Se conserva únicamente el número de contacto como dato útil para la operación cotidiana.
 
-### Contador de clases en lugar de `ConsumoDeClase`
+### Contador de clases y registro de consumo
 
-No se crea una entidad independiente para cada consumo. `PaqueteDeClases` mantiene la cantidad total y la cantidad utilizada, mientras `ParticipaciónEnClase` conserva el estado que explica si esa clase fue consumida, justificada o recuperada.
+`PaqueteDeClases` mantiene la cantidad total y la cantidad utilizada. `ClassConsumption` registra qué participación descontó qué paquete y en qué momento; la participación conserva su estado de consumo.
 
-Esta alternativa es suficiente para el MVP porque el requisito principal es conocer el saldo de clases. La auditoría registra las correcciones de estados y contadores.
+El registro único de consumo hace posible comprobar que cada participación descuente a lo sumo una clase. La auditoría de cambios y correcciones generales queda para E8.
 
-Una alternativa más detallada sería un historial de movimientos de clases, útil para contabilidad interna o reportes complejos. Se reserva para una futura necesidad, porque hoy aumentaría la complejidad sin aportar valor proporcional.
+Un historial general de movimientos y correcciones se evaluará en E8 según las necesidades de auditoría.
 
 ### Recuperación como estado y referencia
 
-No se crea una entidad `Recuperación` independiente. Una participación justificada mantiene el estado `JUSTIFICADA_PENDIENTE_RECUPERAR` y luego referencia la participación futura donde se recuperó.
+No se crea una entidad `Recuperación` independiente. Una participación `JUSTIFIED_ABSENCE` y `NOT_CONSUMED` puede referenciar la participación futura donde se programó su recuperación.
 
 Esto conserva la trazabilidad mínima necesaria y evita un objeto de dominio separado para un concepto que todavía no tiene datos o comportamientos propios suficientes.
 

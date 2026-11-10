@@ -107,6 +107,8 @@ Las materias de una participación se mantienen en un `HashSet` para evitar repe
 
 E6 registra la modalidad de cobro en cada `ClassParticipation`. `PACKAGE` consulta el paquete más antiguo con saldo al cerrar la clase; `PER_CLASS` guarda un precio en la participación y sus pagos en `PerClassPayment`. `ClassClosureScheduler` busca clases vencidas cada minuto y `ClassClosureService` cierra cada clase en una transacción independiente. La hora se obtiene de un `Clock` con la zona `app.timezone`; el aviso de ausencia recibe una marca de tiempo del servidor. La restricción única de `ClassConsumption` y las versiones JPA de clase, participación y paquete protegen el cierre frente a repeticiones y operaciones concurrentes. Una clase sin saldo suficiente conserva `SCHEDULED` para un reintento posterior.
 
+E7 guarda en la participación original una referencia opcional `recoveryTarget` a la nueva participación. Una restricción única impide que dos ausencias apunten a la misma recuperación. `RecoveryService` valida permisos sobre ambas clases y fechas con el mismo `Clock`; la creación de la participación destino y el vínculo se guardan en una transacción. El cierre de E6 resuelve esa participación como cualquier otra: consume una clase restante o genera deuda individual. Si se cancela la clase destino, la ausencia puede vincularse a otra clase futura.
+
 ## 6. Contratos HTTP
 
 Los controladores exponen JSON y usan DTOs para separar el contrato público del modelo persistido. Las entidades JPA no se devuelven directamente desde los endpoints.

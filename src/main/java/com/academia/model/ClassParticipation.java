@@ -69,6 +69,10 @@ public class ClassParticipation {
     @JoinColumn(name = "consumed_package_id")
     private ClassPackage consumedPackage;
 
+    @ManyToOne
+    @JoinColumn(name = "recovery_target_id", unique = true)
+    private ClassParticipation recoveryTarget;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -158,6 +162,18 @@ public class ClassParticipation {
         paidAmount = new Money(paidAmount).add(amount).amount();
     }
 
+    public void assignRecovery(ClassParticipation target) {
+        if (attendanceStatus != AttendanceStatus.JUSTIFIED_ABSENCE ||
+                consumptionStatus != ConsumptionStatus.NOT_CONSUMED ||
+                academyClass.status() != ClassStatus.FINALIZED ||
+                (recoveryTarget != null && recoveryTarget.academyClass().status() != ClassStatus.CANCELLED) ||
+                !student.id().equals(Objects.requireNonNull(target).student().id()) ||
+                target.academyClass().status() != ClassStatus.SCHEDULED) {
+            throw new IllegalStateException("Participation cannot be recovered");
+        }
+        recoveryTarget = target;
+    }
+
     public UUID id() { return id; }
     public AcademyClass academyClass() { return academyClass; }
     public Student student() { return student; }
@@ -169,4 +185,5 @@ public class ClassParticipation {
     public Instant absenceNotifiedAt() { return absenceNotifiedAt; }
     public ConsumptionStatus consumptionStatus() { return consumptionStatus; }
     public ClassPackage consumedPackage() { return consumedPackage; }
+    public ClassParticipation recoveryTarget() { return recoveryTarget; }
 }

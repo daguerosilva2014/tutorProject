@@ -412,7 +412,7 @@ Alta.
 
 ### Objetivo
 
-Permitir recuperar una ausencia justificada en una clase futura sin descontar una clase adicional.
+Permitir recuperar una ausencia justificada en una clase futura: la original no consume y la recuperación descuenta una clase restante o genera un cobro individual al cerrarse.
 
 ### Historia E7-H1
 
@@ -427,11 +427,12 @@ Como profesor, quiero asignar una recuperación a una clase futura para cerrar e
 1. Validar el límite de 12 horas usando fecha y hora de la clase.
 2. Identificar las participaciones `JUSTIFIED_ABSENCE` y `NOT_CONSUMED` pendientes de recuperación sin reutilizar el estado de consumo como estado de recuperación.
 3. Implementar `POST /class-participations/{id}/recovery`.
-4. Crear la participación de destino o vincularla si ya existe.
+4. Crear una participación de destino nueva; rechazar si el alumno ya está asignado a esa clase.
 5. Impedir reutilizar una recuperación.
 6. Impedir recuperaciones en clases canceladas, finalizadas o no futuras.
-7. Evitar consumo adicional.
-8. Registrar auditoría.
+7. Aplicar un solo consumo o cobro al cerrar la clase de recuperación.
+8. Permitir asignar otra clase si el destino anterior se canceló.
+9. Registrar la auditoría transversal en E8.
 
 ### Criterios de aceptación
 
@@ -440,8 +441,9 @@ Como profesor, quiero asignar una recuperación a una clase futura para cerrar e
 - Una ausencia justificada no consume una clase.
 - Una recuperación solo puede utilizarse una vez.
 - La clase de destino debe ser futura.
-- La recuperación no consume una clase adicional.
+- La clase original justificada no consume; la recuperación consume una clase restante del paquete o genera el cobro individual acordado.
 - La operación repetida no crea una segunda recuperación.
+- Una recuperación con clase destino cancelada puede reprogramarse.
 
 ### Pruebas
 
@@ -640,7 +642,7 @@ Verificaciones realizadas:
 - PostgreSQL 16 mediante Docker Compose: contenedor saludable.
 - Arranque con perfil `dev`: correcto; conexión a PostgreSQL y migración Flyway verificadas.
 
-Las épicas E7 a E9 permanecen pendientes.
+Las épicas E8 y E9 permanecen pendientes.
 
 ### E1: Autenticación y usuarios
 
@@ -699,3 +701,7 @@ Verificación: 39 tests correctos con el perfil `test`, incluidas Flyway V8 y V9
 ### Estado de E6
 
 E6 incorpora asistencia, aviso de ausencia con hora del servidor, cierre automático por clase, consumo del paquete más antiguo con saldo y registro único de cada consumo. También incorpora las dos modalidades de cobro por participación: `PACKAGE` y `PER_CLASS`, con deuda y pagos parciales para la segunda. Un cierre sin saldo se revierte y se reintenta. Las ausencias justificadas no consumen ni generan cobro. Las recuperaciones quedan para E7; por ello el estado `NOT_CONSUMED` todavía no representa una recuperación utilizada. Verificación: 46 tests correctos con el perfil `test`, incluyendo Flyway V10 y V11 en H2, API, umbral de 12 horas, pagos parciales, cierre idempotente y reintento por falta de saldo. PostgreSQL todavía requiere comprobación de V10 y V11. Las participaciones existentes anteriores a E6 se migran con modalidad `PACKAGE` por defecto; si no tienen paquete disponible, deberá registrarse uno antes de que puedan cerrarse.
+
+### Estado de E7
+
+E7 vincula una participación `JUSTIFIED_ABSENCE` y `NOT_CONSUMED` con una nueva participación futura del mismo alumno. La ausencia original no consume ni cobra; la recuperación descuenta una clase restante o genera el cobro individual al cerrar la clase destino. La operación repetida devuelve el mismo vínculo, y una clase destino cancelada permite reprogramar la recuperación. La vinculación y la creación del destino son transaccionales; la restricción única y la versión JPA protegen contra duplicaciones. Verificación: 52 tests correctos con el perfil `test`, incluida la migración V12 en H2, permisos, fechas, duplicados, cancelación, consumo y cobro. PostgreSQL todavía requiere comprobación de V12. La auditoría transversal corresponde a E8.

@@ -15,7 +15,7 @@ public record ClassParticipationResponse(UUID id, UUID classId, Student student,
                                          BillingMode billingMode, BigDecimal unitPrice,
                                          AttendanceStatus attendanceStatus, Instant absenceNotifiedAt,
                                          ConsumptionStatus consumptionStatus, UUID consumedPackageId,
-                                         BigDecimal paidAmount, BigDecimal outstandingAmount) {
+                                         BigDecimal paidAmount, BigDecimal outstandingAmount, UUID recoveryTargetId) {
     public static ClassParticipationResponse from(ClassParticipation participation) {
         return new ClassParticipationResponse(
                 participation.id(),
@@ -30,7 +30,8 @@ public record ClassParticipationResponse(UUID id, UUID classId, Student student,
                 participation.attendanceStatus(), participation.absenceNotifiedAt(),
                 participation.consumptionStatus(),
                 participation.consumedPackage() == null ? null : participation.consumedPackage().id(),
-                participation.paidAmount().amount(), participation.outstandingAmount().amount()
+                participation.paidAmount().amount(), participation.outstandingAmount().amount(),
+                participation.recoveryTarget() == null ? null : participation.recoveryTarget().id()
         );
     }
 
