@@ -21,8 +21,8 @@ public interface AcademyClassRepository extends JpaRepository<AcademyClass, UUID
 
     @Query("""
             select c from AcademyClass c
-            where (:fromDate is null or c.date >= :fromDate)
-              and (:toDate is null or c.date <= :toDate)
+            where c.date >= coalesce(:fromDate, c.date)
+              and c.date <= coalesce(:toDate, c.date)
               and (:teacherId is null or c.teacher.id = :teacherId)
               and (:status is null or c.status = :status)
             order by c.date, c.startTime, c.id

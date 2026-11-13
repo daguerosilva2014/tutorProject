@@ -70,6 +70,15 @@ class AcademyClassApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id == '" + id + "')]").isNotEmpty());
 
+        mockMvc.perform(get("/api/v1/classes?from=2026-11-16")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + id + "')]").isNotEmpty());
+        mockMvc.perform(get("/api/v1/classes?to=2026-11-16")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + id + "')]").isNotEmpty());
+
         mockMvc.perform(post("/api/v1/classes/{id}/cancel", id).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));

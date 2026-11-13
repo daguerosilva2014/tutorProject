@@ -621,11 +621,14 @@ E0 Base ejecutable
  → E5 Paquetes y pagos
  → E6 Asistencia, consumo y cierre automático
  → E7 Recuperaciones
+ → F1 Frontend inicial (login y consulta de alumnos)
  → E8 Auditoría e historial
  → E9 Endurecimiento y entrega MVP
 ```
 
 Después de cada épica se debe ejecutar una revisión del código, actualizar la documentación afectada y verificar los criterios de aceptación antes de comenzar la siguiente.
+
+F1 se incorporó después de E7 por decisión del proyecto. Las siguientes pantallas del frontend se desarrollarán en entregas pequeñas a medida que se definan; E8 y E9 continúan pendientes.
 
 ## 16. Estado actual
 
@@ -705,3 +708,13 @@ E6 incorpora asistencia, aviso de ausencia con hora del servidor, cierre automá
 ### Estado de E7
 
 E7 vincula una participación `JUSTIFIED_ABSENCE` y `NOT_CONSUMED` con una nueva participación futura del mismo alumno. La ausencia original no consume ni cobra; la recuperación descuenta una clase restante o genera el cobro individual al cerrar la clase destino. La operación repetida devuelve el mismo vínculo, y una clase destino cancelada permite reprogramar la recuperación. La vinculación y la creación del destino son transaccionales; la restricción única y la versión JPA protegen contra duplicaciones. Verificación: 52 tests correctos con el perfil `test`, incluida la migración V12 en H2, permisos, fechas, duplicados, cancelación, consumo y cobro. PostgreSQL todavía requiere comprobación de V12. La auditoría transversal corresponde a E8.
+
+### Estado de F1: Frontend inicial
+
+Se incorporó `frontend/` con React, TypeScript y Vite. La primera entrega ofrece login JWT y consulta de alumnos con búsqueda y filtro de estado. La decisión se registra en [ADR-004](adr/004-frontend-react.md), y la ejecución y limitaciones en [07-frontend.md](07-frontend.md). Las demás pantallas operativas siguen pendientes.
+
+La siguiente entrega del frontend completa la gestión de alumnos con alta, detalle, edición y cambio de estado. Utiliza los endpoints ya existentes y mantiene pendientes las demás pantallas operativas.
+
+La entrega posterior agrega la gestión de materias con el mismo alcance y una navegación entre ambas secciones. Las pantallas de clases y los demás procesos siguen pendientes.
+
+La siguiente entrega incorpora la pantalla de clases: listado con filtros, programación, detalle, edición y cancelación. El administrador debe seleccionar un profesor activo existente; la creación de usuarios desde el frontend aún está pendiente. Participaciones y procesos posteriores siguen pendientes.

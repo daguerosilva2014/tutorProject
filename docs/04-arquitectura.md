@@ -2,7 +2,9 @@
 
 ## 1. Decisión arquitectónica
 
-El proyecto se implementará como un monolito Spring Boot organizado por capas. La aplicación, la API y la base de datos forman un único sistema desplegable. No se utilizarán microservicios ni módulos Maven independientes.
+El backend se implementa como un monolito Spring Boot organizado por capas. La aplicación y la API forman una única unidad de despliegue conectada a PostgreSQL. No se utilizarán microservicios ni módulos Maven independientes.
+
+El frontend React se desarrolla en `frontend/` y consume esta API. Su decisión técnica está registrada en [ADR-004](adr/004-frontend-react.md); este documento describe la arquitectura del backend.
 
 La estructura por capas facilita seguir una petición desde HTTP hasta la persistencia y es adecuada para el tamaño actual del proyecto:
 

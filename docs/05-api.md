@@ -488,7 +488,7 @@ Response `201 Created`:
 }
 ```
 
-`GET /packages/{packageId}/payments` devuelve un array ordenado por fecha e identificador. `amount` debe ser positivo y tener hasta dos decimales; se interpreta siempre en ARS. `paidAt` es obligatorio. `method` y `notes` son opcionales; `method` acepta `CASH`, `TRANSFER` u `OTHER`. El usuario autenticado queda registrado en `registeredBy`. `paymentStatus` y `outstandingAmount` muestran el **estado actual del paquete** al consultar un pago; para conocer el importe de cada pago se usa `amount`. No hay edición ni borrado de pagos en E5. Administrador y profesor autenticados pueden registrar y consultar pagos de cualquier alumno.
+`GET /packages/{packageId}/payments` devuelve un array ordenado por fecha e identificador. `amount` debe ser positivo y tener hasta dos decimales; se interpreta siempre en ARS. `paidAt` es obligatorio. `method` y `notes` son opcionales; `method` acepta `CASH` o `TRANSFER`. El usuario autenticado queda registrado en `registeredBy`. `paymentStatus` y `outstandingAmount` muestran el **estado actual del paquete** al consultar un pago; para conocer el importe de cada pago se usa `amount`. No hay edición ni borrado de pagos en E5. Administrador y profesor autenticados pueden registrar y consultar pagos de cualquier alumno.
 
 Errores: `400` por importe inválido, `404` por paquete inexistente, `409` si el importe supera el saldo pendiente o si el paquete cambió por una operación concurrente. Una operación fallida no guarda el pago ni aumenta el total abonado.
 

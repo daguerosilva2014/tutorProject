@@ -26,7 +26,7 @@ public class StudentService {
 
     @Transactional(readOnly = true)
     public List<Student> findAll(StudentStatus status, String search) {
-        String term = search == null || search.isBlank() ? null : search.trim();
+        String term = search == null || search.isBlank() ? "" : search.trim();
         return repository.search(status, term, Sort.by("name").ascending());
     }
 

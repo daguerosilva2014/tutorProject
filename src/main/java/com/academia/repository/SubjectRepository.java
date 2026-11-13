@@ -13,7 +13,7 @@ public interface SubjectRepository extends JpaRepository<Subject, UUID> {
     @Query("""
             select s from Subject s
             where (:status is null or s.status = :status)
-              and (:search is null or lower(s.name) like lower(concat('%', :search, '%')))
+              and (:search = '' or lower(s.name) like lower(concat('%', :search, '%')))
             """)
     List<Subject> search(SubjectStatus status, String search, Sort sort);
 }
