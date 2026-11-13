@@ -2,21 +2,44 @@
 
 ## Alcance actual
 
-La interfaz está destinada a administradores y profesores. Incluye inicio y cierre de sesión y navegación entre alumnos, materias y clases. Alumnos y materias tienen listado con búsqueda y filtro, alta, detalle, edición y cambio de estado con confirmación. Clases tiene listado con filtros por fechas y estado, programación, detalle, edición y cancelación con confirmación. Consume los endpoints existentes de `/api/v1/students`, `/api/v1/subjects`, `/api/v1/classes`, `/api/v1/users` para el selector de profesores y `POST /api/v1/auth/login`.
+La interfaz React permite iniciar y cerrar sesión, administrar alumnos y materias, programar y consultar clases y, para el rol administrador, crear y editar usuarios. En el detalle de un alumno se pueden crear paquetes, consultar saldos y registrar pagos. En el detalle de una clase se pueden asignar alumnos con modalidad `PACKAGE` o `PER_CLASS`, elegir materias, registrar asistencia o ausencia, consultar pagos individuales y asignar recuperaciones cuando la ausencia cumple los requisitos.
 
-Todavía no incorpora las pantallas de participaciones, asistencia, paquetes, pagos ni recuperaciones. La autorización y validación definitiva siguen estando a cargo del backend.
+La interfaz consume los endpoints existentes del backend. Las reglas de permisos, cobro, cierre de clases, consumo de paquetes y recuperación siguen siendo responsabilidad del backend. No hay pantallas de historial ni auditoría porque `/api/v1/students/{studentId}/history` y `/api/v1/audit-entries` aún no están implementados.
 
-## Estructura y ejecución
+## Organización
 
-El proyecto React con TypeScript y Vite vive en `frontend/` y se ejecuta separado de Spring Boot durante el desarrollo. `frontend/src/api.ts` concentra las llamadas HTTP; `App.tsx` contiene el ingreso, navegación y listado de alumnos; `SubjectsPage.tsx` y `ClassesPage.tsx` contienen los otros listados; `StudentPanel.tsx`, `SubjectPanel.tsx` y `ClassPanel.tsx` contienen formularios y detalles. El servidor de Vite dirige `/api` a `http://localhost:8080`, por lo que el navegador hace solicitudes al mismo origen de desarrollo.
+El proyecto vive en `frontend/`. `src/api.ts` reúne los contratos y las llamadas HTTP; `src/App.tsx` contiene el ingreso y la navegación; las pantallas y paneles de cada recurso están en archivos separados. `PaymentForm.tsx` se usa tanto para pagos de paquetes como para pagos por clase. No se agregó un router: cambiar de sección desmonta la pantalla anterior y reinicia sus filtros.
 
-Con PostgreSQL y el backend iniciados mediante `./scripts/dev-backend.sh`, ejecutar `npm ci` y `npm run dev` desde `frontend/`. El script usa la base local separada `academia_pruebas` para no afectar administradores o datos anteriores en `academia`. Para comprobar compilación y tipos, ejecutar `npm run build`.
-Las llamadas HTTP tienen pruebas con `npm test`; `npm run lint` revisa el código estáticamente.
+En desarrollo, Vite dirige `/api` a `http://localhost:8080`. Para iniciar el sistema:
 
-## Sesión y errores
+```bash
+docker compose up -d postgres
+./scripts/dev-backend.sh
+```
 
-El JWT se guarda únicamente en el estado de React. Al salir, recibir `401` o recargar la página, el usuario debe iniciar sesión de nuevo. La interfaz no guarda tokens en `localStorage` ni imprime credenciales en la consola. Los formularios muestran errores de validación o permisos; los listados distinguen carga, error y resultado vacío. La lista correspondiente se actualiza tras guardar cambios. Si los filtros actuales excluyen al alumno, materia o clase recién creados o modificados, seguirán visibles en el panel de detalle pero no en esa lista hasta cambiar los filtros. Cambiar de sección cierra el panel abierto y reinicia los filtros de la sección anterior.
+En otra terminal:
 
-En clases, el administrador selecciona un profesor activo obtenido de `/api/v1/users`; un profesor programa clases para sí mismo sin selector. La base de prueba puede comenzar sin profesores: en ese caso el administrador puede consultar clases, pero necesita crear un profesor mediante la API de usuarios antes de programar una. La interfaz solo permite editar o cancelar clases `SCHEDULED`, como el backend. Los filtros de fecha se aplican con un botón y rechazan un rango invertido.
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-Para servir el frontend compilado en otro entorno, se debe configurar el servidor web para dirigir `/api` al backend. Esa configuración de despliegue queda para E9.
+Abrir la URL de Vite, habitualmente `http://localhost:5173`. El backend usa la base separada `academia_pruebas`. El usuario administrador inicial y su contraseña local se encuentran en `.env`, ignorado por Git.
+
+## Reglas visibles en la interfaz
+
+- Solo el administrador ve **Usuarios**. La contraseña inicial se ingresa al crear la cuenta y no se puede consultar después. El frontend impide que el administrador cambie su propio rol o deshabilite su cuenta desde esa pantalla.
+- El administrador debe elegir un profesor activo al programar una clase. Un profesor programa sus propias clases. Solo las clases `SCHEDULED` pueden editarse, cancelarse o recibir alumnos y marcas de asistencia.
+- La modalidad `PACKAGE` requiere que el alumno tenga clases disponibles en algún paquete. `PER_CLASS` requiere un precio individual. Las materias son opcionales.
+- Un aviso de ausencia se envía sin fecha ni hora aportadas por el navegador. El backend decide si llega con la anticipación suficiente para justificarla. La marca de asistencia ya registrada no se cambia.
+- Los pagos por clase aparecen cuando la clase está `FINALIZED` y la participación es `PER_CLASS`. Una recuperación se ofrece solo para una participación con ausencia justificada, sin consumo y con clase original finalizada; el backend verifica también la clase destino.
+- Los formularios muestran carga, errores y confirmación. El frontend limita el importe de un pago al saldo mostrado, y el backend vuelve a validarlo antes de guardar.
+
+## Sesión y verificación
+
+El JWT se guarda solo en memoria. Al recargar, salir o recibir `401`, hay que iniciar sesión de nuevo. No se guardan credenciales en `localStorage` ni se imprimen en consola.
+
+Desde `frontend/`, ejecutar `npm test`, `npm run lint` y `npm run build`. Para una revisión manual completa: crear un alumno, agregarle un paquete, registrar un pago, programar una clase, asignar al alumno, elegir materias y registrar asistencia. Para comprobar pagos individuales y recuperaciones hay que esperar a que una clase se cierre; el frontend no fuerza su finalización.
+
+Para servir el frontend compilado en otro entorno, el servidor web debe dirigir `/api` al backend. Esa configuración de despliegue queda para E9.

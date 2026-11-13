@@ -38,7 +38,7 @@ La aplicación usa arquitectura clásica por capas: `controller`, `service`, `re
 
 ## Frontend
 
-El frontend usa React, TypeScript y Vite. Permite iniciar sesión, gestionar alumnos y materias, y programar, consultar, editar o cancelar clases. Para ejecutarlo, primero iniciá PostgreSQL y el backend con el perfil `dev`; después, en otra terminal:
+El frontend usa React, TypeScript y Vite. Permite iniciar sesión, administrar usuarios, alumnos y materias, y operar clases con participantes, asistencia, paquetes, pagos y recuperaciones. Para ejecutarlo, primero iniciá PostgreSQL y el backend con el perfil `dev`; después, en otra terminal:
 
 ```bash
 cd frontend
@@ -46,7 +46,7 @@ npm ci
 npm run dev
 ```
 
-Abrí la dirección que muestra Vite (habitualmente `http://localhost:5173`). En desarrollo, Vite envía las solicitudes `/api` al backend en `http://localhost:8080`. El token JWT se conserva solo en memoria: al recargar la página hay que volver a iniciar sesión. Las demás pantallas operativas siguen pendientes. Más detalles en [docs/07-frontend.md](docs/07-frontend.md).
+Abrí la dirección que muestra Vite (habitualmente `http://localhost:5173`). En desarrollo, Vite envía las solicitudes `/api` al backend en `http://localhost:8080`. El token JWT se conserva solo en memoria: al recargar la página hay que volver a iniciar sesión. Historial y auditoría siguen pendientes en el backend. Más detalles en [docs/07-frontend.md](docs/07-frontend.md).
 
 Para verificar el frontend: `npm test`, `npm run lint` y `npm run build` desde `frontend/`.
 

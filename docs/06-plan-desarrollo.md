@@ -718,3 +718,5 @@ La siguiente entrega del frontend completa la gestión de alumnos con alta, deta
 La entrega posterior agrega la gestión de materias con el mismo alcance y una navegación entre ambas secciones. Las pantallas de clases y los demás procesos siguen pendientes.
 
 La siguiente entrega incorpora la pantalla de clases: listado con filtros, programación, detalle, edición y cancelación. El administrador debe seleccionar un profesor activo existente; la creación de usuarios desde el frontend aún está pendiente. Participaciones y procesos posteriores siguen pendientes.
+
+La entrega siguiente completa los flujos que el backend ya ofrece desde React: administración de usuarios para el administrador, paquetes y pagos en el detalle del alumno, y participantes, asistencia, pagos individuales y recuperaciones en el detalle de la clase. Historial y auditoría siguen pendientes de E8 en el backend; la interfaz no presenta pantallas sin endpoints reales. La ejecución y las condiciones de cada flujo se documentan en [07-frontend.md](07-frontend.md).

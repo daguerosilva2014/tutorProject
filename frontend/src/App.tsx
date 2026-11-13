@@ -3,6 +3,7 @@ import { ApiError, getStudents, login, type Session, type Student } from './api'
 import StudentPanel from './StudentPanel'
 import SubjectsPage from './SubjectsPage'
 import ClassesPage from './ClassesPage'
+import UsersPage from './UsersPage'
 import './App.css'
 
 function App() {
@@ -14,20 +15,22 @@ function App() {
 }
 
 function Workspace({ session, onLogout }: { session: Session; onLogout: () => void }) {
-  const [page, setPage] = useState<'students' | 'subjects' | 'classes'>('students')
+  const [page, setPage] = useState<'students' | 'subjects' | 'classes' | 'users'>('students')
   return <div className="app-shell">
     <header className="app-header"><div className="header-inner"><Brand />
       <nav aria-label="Navegación principal">
         <button type="button" aria-current={page === 'students' ? 'page' : undefined} onClick={() => setPage('students')}>Alumnos</button>
         <button type="button" aria-current={page === 'subjects' ? 'page' : undefined} onClick={() => setPage('subjects')}>Materias</button>
         <button type="button" aria-current={page === 'classes' ? 'page' : undefined} onClick={() => setPage('classes')}>Clases</button>
+        {session.user.role === 'ADMIN' && <button type="button" aria-current={page === 'users' ? 'page' : undefined} onClick={() => setPage('users')}>Usuarios</button>}
       </nav>
       <div className="account"><div><strong>{session.user.name}</strong><small>{session.user.role === 'ADMIN' ? 'Administrador' : 'Profesor'}</small></div>
         <button className="text-button" type="button" onClick={onLogout}>Salir</button></div>
     </div></header>
     {page === 'students' ? <StudentsPage session={session} onLogout={onLogout} /> :
       page === 'subjects' ? <SubjectsPage session={session} onLogout={onLogout} /> :
-        <ClassesPage session={session} onLogout={onLogout} />}
+        page === 'classes' ? <ClassesPage session={session} onLogout={onLogout} /> :
+          <UsersPage session={session} onLogout={onLogout} />}
   </div>
 }
 

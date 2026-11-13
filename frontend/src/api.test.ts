@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cancelClass, changeStudentStatus, changeSubjectStatus, createClass, createStudent, createSubject, getActiveTeachers, getClass, getClasses, getStudent, getStudents, getSubject, getSubjects, login, updateClass, updateStudent, updateSubject } from './api'
+import { addParticipant, assignRecovery, cancelClass, changeStudentStatus, changeSubjectStatus, createClass, createPackage, createPackagePayment, createParticipationPayment, createStudent, createSubject, createUser, getActiveTeachers, getClass, getClasses, getPackage, getPackagePayments, getPackages, getParticipants, getParticipationPayments, getStudent, getStudents, getSubject, getSubjects, getUsers, login, recordAttendance, replaceParticipationSubjects, updateClass, updateStudent, updateSubject, updateUser } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -140,5 +140,66 @@ describe('API del frontend', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(4, '/api/v1/classes/clase-1/cancel', {
       method: 'POST', headers: { Authorization: 'Bearer token-de-prueba' },
     })
+  })
+
+  it('administra usuarios sin enviar la contraseña al editar', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(Response.json({})))
+    vi.stubGlobal('fetch', fetchMock)
+    await getUsers('token')
+    await createUser('token', { name: 'Ana', username: 'ana', password: 'clave-segura', role: 'TEACHER' })
+    await updateUser('token', 'user-1', { name: 'Ana Pérez', role: 'TEACHER', enabled: false })
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/users', { method: 'GET', headers: { Authorization: 'Bearer token' } })
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/v1/users', {
+      method: 'POST', headers: { Authorization: 'Bearer token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Ana', username: 'ana', password: 'clave-segura', role: 'TEACHER' }),
+    })
+    expect(fetchMock).toHaveBeenNthCalledWith(3, '/api/v1/users/user-1', {
+      method: 'PATCH', headers: { Authorization: 'Bearer token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Ana Pérez', role: 'TEACHER', enabled: false }),
+    })
+  })
+
+  it('gestiona paquetes y pagos por las rutas del alumno y del paquete', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(Response.json({})))
+    vi.stubGlobal('fetch', fetchMock)
+    const payment = { amount: 1200, paidAt: '2026-11-13', method: 'TRANSFER' as const, notes: null }
+    await getPackages('token', 'student-1')
+    await createPackage('token', 'student-1', { totalClasses: 8, price: 8000, purchasedAt: '2026-11-13' })
+    await getPackage('token', 'package-1')
+    await getPackagePayments('token', 'package-1')
+    await createPackagePayment('token', 'package-1', payment)
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      '/api/v1/students/student-1/packages', '/api/v1/students/student-1/packages',
+      '/api/v1/packages/package-1', '/api/v1/packages/package-1/payments', '/api/v1/packages/package-1/payments',
+    ])
+    expect(fetchMock).toHaveBeenNthCalledWith(5, '/api/v1/packages/package-1/payments', {
+      method: 'POST', headers: { Authorization: 'Bearer token', 'Content-Type': 'application/json' }, body: JSON.stringify(payment),
+    })
+  })
+
+  it('gestiona participantes, asistencia, pagos individuales y recuperaciones', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(Response.json({})))
+    vi.stubGlobal('fetch', fetchMock)
+    await getParticipants('token', 'class-1')
+    await addParticipant('token', 'class-1', { studentId: 'student-1', billingMode: 'PER_CLASS', unitPrice: 2500, subjectIds: ['subject-1'] })
+    await replaceParticipationSubjects('token', 'participation-1', [])
+    await recordAttendance('token', 'participation-1', 'ABSENT')
+    await getParticipationPayments('token', 'participation-1')
+    await createParticipationPayment('token', 'participation-1', { amount: 1000, paidAt: '2026-11-13', method: 'CASH', notes: null })
+    await assignRecovery('token', 'participation-1', 'class-2')
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      '/api/v1/classes/class-1/participants', '/api/v1/classes/class-1/participants',
+      '/api/v1/class-participations/participation-1', '/api/v1/class-participations/participation-1/attendance',
+      '/api/v1/class-participations/participation-1/payments', '/api/v1/class-participations/participation-1/payments',
+      '/api/v1/class-participations/participation-1/recovery',
+    ])
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ studentId: 'student-1', billingMode: 'PER_CLASS', unitPrice: 2500, subjectIds: ['subject-1'] }) })
+    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: 'PUT', body: JSON.stringify({ status: 'ABSENT' }) })
+    expect(fetchMock.mock.calls[6][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ targetClassId: 'class-2' }) })
+  })
+
+  it('conserva el código de error del backend', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ code: 'NO_PACKAGE_BALANCE' }, { status: 409 })))
+    await expect(getPackages('token', 'student-1')).rejects.toMatchObject({ status: 409, code: 'NO_PACKAGE_BALANCE' })
   })
 })

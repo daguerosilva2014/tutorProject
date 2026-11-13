@@ -9,18 +9,33 @@ export type AcademyClass = { id: string; date: string; startTime: string; endTim
 export type ClassInput = { date: string; startTime: string; endTime: string; notes: string | null }
 export type CreateClassInput = ClassInput & { teacherId: string | null }
 export type ClassFilters = { from: string; to: string; teacherId: string; status: string }
+export type ManagedUser = { id: string; name: string; username: string; role: 'ADMIN' | 'TEACHER'; enabled: boolean; createdAt: string }
+export type UserInput = { name: string; username: string; password: string; role: ManagedUser['role'] }
+export type UserUpdate = { name: string; role: ManagedUser['role']; enabled: boolean }
+export type ClassPackage = { id: string; studentId: string; totalClasses: number; usedClasses: number; remainingClasses: number; price: number; paidAmount: number; outstandingAmount: number; usageStatus: 'PENDING' | 'IN_USE' | 'EXHAUSTED'; paymentStatus: 'PENDING' | 'PARTIAL' | 'PAID'; purchasedAt: string }
+export type PackageInput = { totalClasses: number; price: number; purchasedAt: string }
+export type PaymentInput = { amount: number; paidAt: string; method: 'CASH' | 'TRANSFER' | null; notes: string | null }
+export type Payment = { id: string; amount: number; paidAt: string; method: PaymentInput['method']; notes: string | null; registeredBy: string; outstandingAmount: number }
+export type Participation = { id: string; classId: string; student: { id: string; name: string }; subjects: { id: string; name: string }[]; billingMode: 'PACKAGE' | 'PER_CLASS'; unitPrice: number | null; attendanceStatus: 'PENDING' | 'PRESENT' | 'ABSENT' | 'JUSTIFIED_ABSENCE'; absenceNotifiedAt: string | null; consumptionStatus: string; consumedPackageId: string | null; paidAmount: number; outstandingAmount: number; recoveryTargetId: string | null }
+export type ParticipationInput = { studentId: string; billingMode: Participation['billingMode']; unitPrice?: number; subjectIds: string[] }
+export type Recovery = { originalParticipationId: string; targetParticipationId: string; status: 'RECOVERED' }
 
 export class ApiError extends Error {
   readonly status: number
+  readonly code: string | null
 
-  constructor(status: number) {
+  constructor(status: number, code: string | null = null) {
     super(`API request failed: ${status}`)
     this.status = status
+    this.code = code
   }
 }
 
 async function readResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) throw new ApiError(response.status)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { code?: string } | null
+    throw new ApiError(response.status, body?.code ?? null)
+  }
   return response.json() as Promise<T>
 }
 
@@ -45,7 +60,7 @@ export async function getStudents(token: string, search: string, status: string,
   return readResponse<Student[]>(response)
 }
 
-async function authorizedRequest<T>(url: string, token: string, method: 'GET' | 'POST' | 'PATCH', body?: unknown): Promise<T> {
+async function authorizedRequest<T>(url: string, token: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT', body?: unknown): Promise<T> {
   const response = await fetch(url, {
     method,
     headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
@@ -129,4 +144,68 @@ export function updateClass(token: string, id: string, input: ClassInput): Promi
 
 export function cancelClass(token: string, id: string): Promise<AcademyClass> {
   return authorizedRequest(`/api/v1/classes/${id}/cancel`, token, 'POST')
+}
+
+export function getUsers(token: string): Promise<ManagedUser[]> {
+  return authorizedRequest('/api/v1/users', token, 'GET')
+}
+
+export function getUser(token: string, id: string): Promise<ManagedUser> {
+  return authorizedRequest(`/api/v1/users/${id}`, token, 'GET')
+}
+
+export function createUser(token: string, input: UserInput): Promise<ManagedUser> {
+  return authorizedRequest('/api/v1/users', token, 'POST', input)
+}
+
+export function updateUser(token: string, id: string, input: UserUpdate): Promise<ManagedUser> {
+  return authorizedRequest(`/api/v1/users/${id}`, token, 'PATCH', input)
+}
+
+export function getPackages(token: string, studentId: string): Promise<ClassPackage[]> {
+  return authorizedRequest(`/api/v1/students/${studentId}/packages`, token, 'GET')
+}
+
+export function getPackage(token: string, id: string): Promise<ClassPackage> {
+  return authorizedRequest(`/api/v1/packages/${id}`, token, 'GET')
+}
+
+export function createPackage(token: string, studentId: string, input: PackageInput): Promise<ClassPackage> {
+  return authorizedRequest(`/api/v1/students/${studentId}/packages`, token, 'POST', input)
+}
+
+export function getPackagePayments(token: string, packageId: string): Promise<Payment[]> {
+  return authorizedRequest(`/api/v1/packages/${packageId}/payments`, token, 'GET')
+}
+
+export function createPackagePayment(token: string, packageId: string, input: PaymentInput): Promise<Payment> {
+  return authorizedRequest(`/api/v1/packages/${packageId}/payments`, token, 'POST', input)
+}
+
+export function getParticipants(token: string, classId: string): Promise<Participation[]> {
+  return authorizedRequest(`/api/v1/classes/${classId}/participants`, token, 'GET')
+}
+
+export function addParticipant(token: string, classId: string, input: ParticipationInput): Promise<Participation> {
+  return authorizedRequest(`/api/v1/classes/${classId}/participants`, token, 'POST', input)
+}
+
+export function replaceParticipationSubjects(token: string, participationId: string, subjectIds: string[]): Promise<Participation> {
+  return authorizedRequest(`/api/v1/class-participations/${participationId}`, token, 'PATCH', { subjectIds })
+}
+
+export function recordAttendance(token: string, participationId: string, status: 'PRESENT' | 'ABSENT'): Promise<Participation> {
+  return authorizedRequest(`/api/v1/class-participations/${participationId}/attendance`, token, 'PUT', { status })
+}
+
+export function getParticipationPayments(token: string, participationId: string): Promise<Payment[]> {
+  return authorizedRequest(`/api/v1/class-participations/${participationId}/payments`, token, 'GET')
+}
+
+export function createParticipationPayment(token: string, participationId: string, input: PaymentInput): Promise<Payment> {
+  return authorizedRequest(`/api/v1/class-participations/${participationId}/payments`, token, 'POST', input)
+}
+
+export function assignRecovery(token: string, participationId: string, targetClassId: string): Promise<Recovery> {
+  return authorizedRequest(`/api/v1/class-participations/${participationId}/recovery`, token, 'POST', { targetClassId })
 }

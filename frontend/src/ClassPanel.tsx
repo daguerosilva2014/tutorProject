@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, cancelClass, createClass, getClass, updateClass, type AcademyClass, type ClassInput, type Session, type Teacher } from './api'
+import ClassParticipants from './ClassParticipants'
 
 type Props = {
   session: Session
@@ -142,6 +143,7 @@ export default function ClassPanel({ session, classId, teachers, teachersLoading
       {confirmCancel && <div className="status-confirm" role="group" aria-label="Confirmar cancelación"><p>¿Querés cancelar esta clase del {academyClass.date.split('-').reverse().join('/')}? Esta acción no se puede deshacer.</p>
         <div className="panel-actions"><button className="primary-button" type="button" disabled={saving} onClick={confirmCancellation}>{saving ? 'Cancelando…' : 'Confirmar cancelación'}</button>
           <button className="secondary-button" type="button" disabled={saving} onClick={() => setConfirmCancel(false)}>Volver</button></div></div>}
+      <ClassParticipants token={session.accessToken} academyClass={academyClass} onLogout={onLogout} />
     </div> : null}
   </section>
 }

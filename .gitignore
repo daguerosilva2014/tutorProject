@@ -16,3 +16,8 @@ frontend/dist/
 
 # OS files
 .DS_Store
+
+.agents/
+.codex/
+
+AGENTS.MD

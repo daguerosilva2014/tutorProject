@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, changeStudentStatus, createStudent, getStudent, updateStudent, type Student, type StudentInput } from './api'
+import StudentPackages from './StudentPackages'
 
 type Props = {
   token: string
@@ -120,6 +121,7 @@ export default function StudentPanel({ token, studentId, onClose, onLogout, onSa
         {confirmStatus && <div className="status-confirm" role="group" aria-label="Confirmar cambio de estado"><p>¿Querés {student.status === 'ACTIVE' ? 'inactivar' : 'activar'} a {student.name}?</p>
           <div className="panel-actions"><button className="primary-button" type="button" disabled={saving} onClick={toggleStatus}>{saving ? 'Guardando…' : 'Confirmar cambio'}</button>
             <button className="secondary-button" type="button" disabled={saving} onClick={() => setConfirmStatus(false)}>Cancelar</button></div></div>}
+        <StudentPackages token={token} studentId={student.id} onLogout={onLogout} />
       </div> : null}
   </section>
 }
